@@ -1,0 +1,90 @@
+[package]
+name = "pacmap"
+version = "0.1.0"
+edition = "2021"
+authors = ["Joshua Griffith <joshua@beamform.io>"]
+description = "Pairwise Controlled Manifold Approximation (PaCMAP) for dimensionality reduction"
+documentation = "https://docs.rs/pacmap"
+repository = "https://github.com/beamform/pacmap"
+license = "Apache-2.0"
+keywords = ["embedding", "dimension-reduction", "pacmap", "algorithms"]
+categories = ["science", "algorithms", "mathematics"]
+readme = "Readme.md"
+
+[dependencies]
+bon = "2.3"
+ndarray = { version = "0.16", features = ["rayon", "blas"] }
+ndarray-rand = "0.15"
+petal-decomposition = { git = "https://github.com/hadronzoo/petal-decomposition.git", branch = "update-ndarray" }
+rand = { version = "0.8", features = ["small_rng"] }
+rand_pcg = "0.3"
+rayon = "1.10"
+thiserror = "1.0"
+tracing = "0.1"
+wide = "0.7"
+
+[dev-dependencies]
+approx = "0.5"
+criterion = "0.5"
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[lints.clippy]
+blocks_in_conditions = "allow"
+cargo = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+create_dir = "warn"
+dbg_macro = "warn"
+default_numeric_fallback = "warn"
+empty_structs_with_brackets = "warn"
+error_impl_error = "warn"
+exit = "warn"
+expect_used = "deny"
+format_push_string = "warn"
+if_then_some_else_none = "warn"
+impl_trait_in_params = "warn"
+many-single-char-names = "allow"
+missing_assert_message = "warn"
+module_name_repetitions = "allow"
+multiple_inherent_impl = "warn"
+mutex_atomic = "warn"
+needless_raw_strings = "warn"
+panic = "deny"
+pedantic = { level = "warn", priority = -1 }
+print_stderr = "warn"
+print_stdout = "warn"
+rc_mutex = "warn"
+redundant_type_annotations = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+self_named_module_files = "warn"
+semicolon_outside_block = "warn"
+str_to_string = "warn"
+string_lit_chars_any = "warn"
+string_to_string = "warn"
+struct_field_names = "allow"
+todo = "warn"
+try_err = "warn"
+unimplemented = "warn"
+unnecessary_self_imports = "warn"
+unneeded_field_pattern = "warn"
+unreachable = "warn"
+unwrap_used = "deny"
+verbose_file_reads = "warn"
+
+[[bench]]
+name = "knn_benchmark"
+harness = false
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = "full"
+opt-level = 3
