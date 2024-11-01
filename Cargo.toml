@@ -13,9 +13,9 @@ readme = "Readme.md"
 
 [dependencies]
 bon = "2.3"
-ndarray = { version = "0.16", features = ["rayon", "blas"] }
+ndarray = { version = "0.16", features = ["rayon"] }
 ndarray-rand = "0.15"
-petal-decomposition = { git = "https://github.com/hadronzoo/petal-decomposition.git", branch = "update-ndarray" }
+petal-decomposition = "0.8"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_pcg = "0.3"
 rayon = "1.10"
