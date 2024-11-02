@@ -9,7 +9,7 @@ repository = "https://github.com/Beamform/pacmap-rs"
 license = "Apache-2.0"
 keywords = ["embedding", "dimension-reduction", "pacmap", "algorithms"]
 categories = ["science", "algorithms", "mathematics"]
-readme = "Readme.md"
+readme = "README.md"
 
 [dependencies]
 bon = "2.3"
