@@ -11,6 +11,15 @@ keywords = ["embedding", "dimension-reduction", "pacmap", "algorithms"]
 categories = ["science", "algorithms", "mathematics"]
 readme = "README.md"
 
+[features]
+default = []
+intel-mkl-static = ["petal-decomposition/intel-mkl-static", "ndarray/blas"]
+intel-mkl-system = ["petal-decomposition/intel-mkl-system", "ndarray/blas"]
+openblas-static = ["petal-decomposition/openblas-static", "ndarray/blas"]
+openblas-system = ["petal-decomposition/openblas-system", "ndarray/blas"]
+netlib-static = ["petal-decomposition/netlib-static", "ndarray/blas"]
+netlib-system = ["petal-decomposition/netlib-system", "ndarray/blas"]
+
 [dependencies]
 bon = "2.3"
 ndarray = { version = "0.16", features = ["rayon"] }

@@ -110,6 +110,27 @@ fn main() -> Result<()> {
 - `PairConfiguration::NeighborsProvided { pair_neighbors }` - Use provided nearest neighbors, generate remaining pairs
 - `PairConfiguration::AllProvided { pair_neighbors, pair_mn, pair_fp }` - Use all provided pairs
 
+## BLAS/LAPACK Requirements
+
+This crate requires a BLAS/LAPACK backend for PCA. Because BLAS/LAPACK implementations are complex system dependencies,
+you must explicitly choose one when building on non-macOS platforms:
+
+- `intel-mkl-static` or `intel-mkl-system` for Intel MKL
+- `netlib-static` or `netlib-system` for Netlib
+- `openblas-static` or `openblas-system` for OpenBLAS
+
+For example:
+
+```toml
+[dependencies]
+pacmap = { version = "0.1", features = ["openblas-static"] }
+```
+
+**Note:** On macOS, the Accelerate Framework is used by default, so these features are not needed.
+
+See [ndarray-linalg's documentation](https://github.com/rust-ndarray/ndarray-linalg#backend-features) for detailed
+information about BLAS/LAPACK backend configuration and performance considerations.
+
 ## Limitations
 
 This implementation currently:
