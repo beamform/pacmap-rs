@@ -69,6 +69,11 @@ jobs:
           toolchain: nightly
           profile: minimal
 
+      - name: Install cargo-hack from crates.io
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-udeps
+
       - name: Run cargo udeps
         uses: actions-rs/cargo@v1
         with:
