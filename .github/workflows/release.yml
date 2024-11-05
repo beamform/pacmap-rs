@@ -17,11 +17,11 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
 
     steps:
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: rust
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.REPO_RW }}
 
   publish:
     needs: release-please
