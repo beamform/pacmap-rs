@@ -5,10 +5,15 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
 
 jobs:
+  title:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Commit Lint
+        uses: opensource-nepal/commitlint@v1
+
   check:
     runs-on: ubuntu-latest
 
