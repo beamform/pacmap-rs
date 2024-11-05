@@ -1,5 +1,10 @@
 # pacmap
 
+[![Crates.io](https://img.shields.io/crates/v/pacmap)](https://crates.io/crates/pacmap)
+[![Documentation](https://docs.rs/pacmap/badge.svg)](https://docs.rs/pacmap)
+[![CI](https://github.com/beamform/pacmap-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/beamform/pacmap-rs/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 A Rust implementation of PaCMAP (Pairwise Controlled Manifold Approximation) for dimensionality reduction.
 
 ## Overview
