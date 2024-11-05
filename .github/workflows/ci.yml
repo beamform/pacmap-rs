@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Dependencies
-        uses: daaku/gh-action-apt-install@v4
+      - name: Install BLAS
+        uses: Eeems-Org/apt-cache-action@v1
         with:
           packages: libopenblas-dev
 
@@ -47,8 +47,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Dependencies
-        uses: daaku/gh-action-apt-install@v4
+      - name: Install BLAS
+        uses: Eeems-Org/apt-cache-action@v1
         with:
           packages: libopenblas-dev
 
@@ -75,6 +75,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install BLAS
+        uses: Eeems-Org/apt-cache-action@v1
+        with:
+          packages: libopenblas-dev
+
       - name: Checkout code
         uses: actions/checkout@v4
 
