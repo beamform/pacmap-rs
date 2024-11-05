@@ -1,16 +1,16 @@
 //! Adam optimization updates for `PaCMAP` embeddings
 //!
-//! This module implements gradient updates using the Adam optimizer during `PaCMAP`
-//! dimensionality reduction. The Adam optimizer adapts learning rates per parameter
-//! using moment estimates.
+//! This module implements gradient updates using the Adam optimizer during
+//! `PaCMAP` dimensionality reduction. The Adam optimizer adapts learning rates
+//! per parameter using moment estimates.
 
 use ndarray::{s, ArrayView2, ArrayViewMut2, Zip};
 
 /// Updates embedding coordinates using adaptive moment estimation (Adam).
 ///
-/// Performs a single Adam optimization step to update the low-dimensional embedding
-/// based on computed gradients. Uses exponential moving averages of gradients and
-/// squared gradients to adapt learning rates per parameter.
+/// Performs a single Adam optimization step to update the low-dimensional
+/// embedding based on computed gradients. Uses exponential moving averages of
+/// gradients and squared gradients to adapt learning rates per parameter.
 ///
 /// # Arguments
 /// * `y` - Current embedding coordinates to update

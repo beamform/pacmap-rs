@@ -34,7 +34,6 @@ wide = "0.7"
 
 [dev-dependencies]
 approx = "0.5"
-criterion = "0.5"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 
@@ -86,10 +85,6 @@ unneeded_field_pattern = "warn"
 unreachable = "warn"
 unwrap_used = "deny"
 verbose_file_reads = "warn"
-
-[[bench]]
-name = "knn_benchmark"
-harness = false
 
 [profile.release]
 lto = "fat"

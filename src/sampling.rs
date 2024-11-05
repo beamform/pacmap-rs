@@ -1,12 +1,17 @@
 //! `PaCMAP` pair sampling implementations.
 //!
-//! This module provides functions for sampling three types of point pairs used in `PaCMAP` dimensionality reduction:
+//! This module provides functions for sampling three types of point pairs used
+//! in `PaCMAP` dimensionality reduction:
 //!
-//! - Further pairs (FP): Random distant points sampled from outside each point's nearest neighbors
-//! - Mid-near pairs (MN): Points sampled to preserve mid-range distances and global structure
-//! - Nearest neighbors (NN): Close points based on distance metrics that preserve local structure
+//! - Further pairs (FP): Random distant points sampled from outside each
+//!   point's nearest neighbors
+//! - Mid-near pairs (MN): Points sampled to preserve mid-range distances and
+//!   global structure
+//! - Nearest neighbors (NN): Close points based on distance metrics that
+//!   preserve local structure
 //!
-//! Both deterministic (seeded) and non-deterministic sampling strategies are supported.
+//! Both deterministic (seeded) and non-deterministic sampling strategies are
+//! supported.
 
 use crate::distance::array_euclidean_distance;
 use ndarray::parallel::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -15,6 +20,7 @@ use rand::rngs::SmallRng;
 use rand::{thread_rng, Rng, SeedableRng};
 use rayon::slice::ParallelSliceMut;
 use std::array::from_fn;
+use std::cmp::min;
 
 /// Samples random indices while avoiding a set of rejected values.
 ///
@@ -25,7 +31,8 @@ use std::array::from_fn;
 /// * `rng` - Random number generator to use
 ///
 /// # Returns
-/// Vector of `n_samples` unique sampled indices, each < `maximum` and not in `reject_ind`
+/// Vector of `n_samples` unique sampled indices, each < `maximum` and not in
+/// `reject_ind`
 fn sample_fp<R>(
     n_samples: usize,
     maximum: u32,
@@ -35,10 +42,13 @@ fn sample_fp<R>(
 where
     R: Rng,
 {
+    let available_indices = (maximum as usize).saturating_sub(reject_ind.len());
+    let n_samples = min(n_samples, available_indices);
     let mut result = Vec::with_capacity(n_samples);
+
     while result.len() < n_samples {
         let j = rng.gen_range(0..maximum);
-        if !result.contains(&j) && !reject_ind.iter().any(|&k| k == j) {
+        if !result.contains(&j) && reject_ind.iter().all(|&k| k != j) {
             result.push(j);
         }
     }
@@ -47,8 +57,8 @@ where
 
 /// Samples further pairs deterministically using a fixed random seed.
 ///
-/// Generates pairs of points by selecting random indices far from each point's nearest neighbors.
-/// The sampling is reproducible when using the same seed.
+/// Generates pairs of points by selecting random indices far from each point's
+/// nearest neighbors. The sampling is reproducible when using the same seed.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
@@ -82,6 +92,7 @@ pub fn sample_fp_pair_deterministic(
             let reject_ind =
                 pair_neighbors.slice(s![i * n_neighbors..(i + 1) * n_neighbors, 1_usize]);
             let fp_index = sample_fp(n_fp, n as u32, reject_ind, &mut rng);
+            let k = min(k, fp_index.len() - 1);
 
             pair[0] = i as u32;
             pair[1] = fp_index[k];
@@ -92,8 +103,9 @@ pub fn sample_fp_pair_deterministic(
 
 /// Samples mid-near pairs deterministically using a fixed random seed.
 ///
-/// Generates pairs of points with intermediate distances to help preserve global structure.
-/// Each pair is selected by sampling 6 random points and picking the second closest.
+/// Generates pairs of points with intermediate distances to help preserve
+/// global structure. Each pair is selected by sampling 6 random points and
+/// picking the second closest.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
@@ -127,8 +139,8 @@ pub fn sample_mn_pair_deterministic(
 
 /// Samples further pairs using the global thread RNG.
 ///
-/// Non-deterministic version of `sample_fp_pair_deterministic` that uses the global
-/// thread-local random number generator instead of a seeded RNG.
+/// Non-deterministic version of `sample_fp_pair_deterministic` that uses the
+/// global thread-local random number generator instead of a seeded RNG.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
@@ -160,6 +172,7 @@ pub fn sample_fp_pair(
                 pair_neighbors.slice(s![i * n_neighbors..(i + 1) * n_neighbors, 1_usize]);
 
             let fp_index = sample_fp(n_fp, n as u32, reject_ind, &mut thread_rng());
+            let k = min(k, fp_index.len() - 1);
 
             pair[0] = i as u32;
             pair[1] = fp_index[k];
@@ -170,8 +183,8 @@ pub fn sample_fp_pair(
 
 /// Samples mid-near pairs using the global thread RNG.
 ///
-/// Non-deterministic version of `sample_mn_pair_deterministic` that uses the global
-/// thread-local random number generator instead of a seeded RNG.
+/// Non-deterministic version of `sample_mn_pair_deterministic` that uses the
+/// global thread-local random number generator instead of a seeded RNG.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
@@ -199,8 +212,9 @@ pub fn sample_mn_pair(x: ArrayView2<f32>, n_mn: usize) -> Array2<u32> {
 
 /// Samples nearest neighbor pairs based on scaled distances.
 ///
-/// Generates pairs by connecting each point with its nearest neighbors according to a
-/// distance matrix. Neighbors are sorted by their scaled distances.
+/// Generates pairs by connecting each point with its nearest neighbors
+/// according to a distance matrix. Neighbors are sorted by their scaled
+/// distances.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
@@ -249,8 +263,8 @@ pub fn sample_neighbors_pair(
 
 /// Helper function for sampling mid-near pairs.
 ///
-/// From a set of 6 randomly sampled points, selects the point with the second smallest
-/// distance to create a mid-near pair.
+/// From a set of 6 randomly sampled points, selects the point with the second
+/// smallest distance to create a mid-near pair.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point

@@ -1,30 +1,32 @@
 //! `PaCMAP` gradient calculation implementation.
 //!
-//! This module provides the core gradient computation functionality for `PaCMAP`'s
-//! loss function, which balances attractive forces between nearby points and
-//! repulsive forces between distant points. The gradient is used to iteratively
-//! optimize the low-dimensional embedding coordinates.
+//! This module provides the core gradient computation functionality for
+//! `PaCMAP`'s loss function, which balances attractive forces between nearby
+//! points and repulsive forces between distant points. The gradient is used to
+//! iteratively optimize the low-dimensional embedding coordinates.
 
 use crate::weights::Weights;
 use ndarray::{Array2, ArrayView2, Axis};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-/// Calculates the gradient of the `PaCMAP` loss function for the current embedding.
+/// Calculates the gradient of the `PaCMAP` loss function for the current
+/// embedding.
 ///
 /// Computes contributions to the gradient from three types of point pairs:
 /// - Nearest neighbor pairs that preserve local structure through attraction
 /// - Mid-near pairs that preserve intermediate structure through attraction
 /// - Far pairs that prevent collapse through repulsion
 ///
-/// The gradient contributions are calculated in parallel using chunked processing
-/// for memory efficiency.
+/// The gradient contributions are calculated in parallel using chunked
+/// processing for memory efficiency.
 ///
 /// # Arguments
 /// * `y` - Current embedding coordinates as an n × d matrix
 /// * `pair_neighbors` - Matrix of nearest neighbor pair indices
 /// * `pair_mn` - Matrix of mid-near pair indices
 /// * `pair_fp` - Matrix of far pair indices
-/// * `weights` - Weight parameters controlling the relative strength of each pair type
+/// * `weights` - Weight parameters controlling the relative strength of each
+///   pair type
 ///
 /// # Returns
 /// An (n+1) × d matrix containing:

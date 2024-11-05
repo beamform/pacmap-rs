@@ -1,7 +1,7 @@
 //! Optimized distance calculations for `PaCMAP` dimensionality reduction.
 //!
-//! This module provides efficient implementations of distance metrics using SIMD
-//! instructions where possible. It includes functions for:
+//! This module provides efficient implementations of distance metrics using
+//! SIMD instructions where possible. It includes functions for:
 //!
 //! - Computing Euclidean distances between vectors using SIMD
 //! - Scaling distances based on per-point sigma values
@@ -11,7 +11,8 @@ use ndarray::{Array2, ArrayView1, ArrayView2, Zip};
 use tracing::warn;
 use wide::f32x8;
 
-/// Scales distances between points using per-point sigma values for adaptive scaling.
+/// Scales distances between points using per-point sigma values for adaptive
+/// scaling.
 ///
 /// The scaling formula is: `scaled_dist` = dist^2 / (`sigma_i` * `sigma_j`)
 /// where `sigma_i` and `sigma_j` are the scaling factors for points i and j.
@@ -73,7 +74,8 @@ pub fn simd_euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
     total_sum_sq.sqrt()
 }
 
-/// Computes Euclidean distance between array views with optimized path for contiguous data.
+/// Computes Euclidean distance between array views with optimized path for
+/// contiguous data.
 ///
 /// Attempts to use SIMD operations on contiguous memory first, falling back to
 /// slower methods for non-contiguous data with appropriate warnings.
@@ -189,7 +191,8 @@ mod tests {
 
         /// Test type for QuickCheck property testing of vector pairs.
         ///
-        /// Generates pairs of vectors with same length containing only finite values.
+        /// Generates pairs of vectors with same length containing only finite
+        /// values.
         #[derive(Clone, Debug)]
         struct VecPair(Vec<f32>, Vec<f32>);
 

@@ -1,37 +1,44 @@
 //! Manages weights used during the `PaCMAP` optimization process.
 //!
-//! The weights control how different types of point pairs influence the embedding:
+//! The weights control how different types of point pairs influence the
+//! embedding:
 //! - Nearest neighbor pairs preserve local structure
 //! - Mid-near pairs preserve medium-range structure
 //! - Far pairs prevent collapse by maintaining separation
 //!
 //! The weights evolve through three phases during optimization:
 //! 1. Gradually reduce mid-near weight to allow initial structure formation
-//! 2. Balance local and global structure with equal mid-near and neighbor weights
+//! 2. Balance local and global structure with equal mid-near and neighbor
+//!    weights
 //! 3. Focus on local structure by zeroing mid-near weight
 
 /// Weight parameters applied to each type of point pair during optimization.
 #[derive(Debug, Clone, Copy)]
 pub struct Weights {
-    /// Weight for mid-near pairs, controlling medium-range structure preservation.
-    /// Gradually decreases from initial value to 0.0 across optimization phases.
+    /// Weight for mid-near pairs, controlling medium-range structure
+    /// preservation. Gradually decreases from initial value to 0.0 across
+    /// optimization phases.
     pub w_mn: f32,
 
-    /// Weight for nearest neighbor pairs, controlling local structure preservation.
-    /// Varies between 1.0-3.0 across optimization phases.
+    /// Weight for nearest neighbor pairs, controlling local structure
+    /// preservation. Varies between 1.0-3.0 across optimization phases.
     pub w_neighbors: f32,
 
-    /// Weight for far pairs, controlling global structure by preventing collapse.
-    /// Remains constant at 1.0 throughout optimization.
+    /// Weight for far pairs, controlling global structure by preventing
+    /// collapse. Remains constant at 1.0 throughout optimization.
     pub w_fp: f32,
 }
 
-/// Calculate optimization weights based on the current iteration and phase durations.
+/// Calculate optimization weights based on the current iteration and phase
+/// durations.
 ///
 /// The weights smoothly transition through three phases:
-/// 1. Reduce mid-near weight linearly from initial value to 3.0, with fixed neighbor and far weights
-/// 2. Fix all weights to balance local and global structure (mid-near=3.0, neighbor=3.0, far=1.0)
-/// 3. Zero mid-near weight and reduce neighbor weight to focus on local structure
+/// 1. Reduce mid-near weight linearly from initial value to 3.0, with fixed
+///    neighbor and far weights
+/// 2. Fix all weights to balance local and global structure (mid-near=3.0,
+///    neighbor=3.0, far=1.0)
+/// 3. Zero mid-near weight and reduce neighbor weight to focus on local
+///    structure
 ///
 /// # Arguments
 /// * `w_mn_init` - Initial weight for mid-near pairs

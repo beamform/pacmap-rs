@@ -1,9 +1,9 @@
 //! K-nearest neighbor computation for `PaCMAP` dimensionality reduction.
 //!
-//! This module efficiently computes k-nearest neighbors for high-dimensional data points
-//! using SIMD-accelerated Euclidean distance calculations and parallel processing. The
-//! neighbors and distances are used by `PaCMAP` to preserve local structure during the
-//! dimensionality reduction process.
+//! This module efficiently computes k-nearest neighbors for high-dimensional
+//! data points using SIMD-accelerated Euclidean distance calculations and
+//! parallel processing. The neighbors and distances are used by `PaCMAP` to
+//! preserve local structure during the dimensionality reduction process.
 
 use crate::distance::simd_euclidean_distance;
 use ndarray::{Array2, ArrayView2};
@@ -12,9 +12,10 @@ use std::cmp::min;
 
 /// Finds k-nearest neighbors for a set of high-dimensional data points.
 ///
-/// Computes pairwise distances between all points in parallel using SIMD acceleration,
-/// then identifies the k nearest neighbors for each point based on Euclidean distance.
-/// Handles edge cases like empty inputs, single points, and when k exceeds available neighbors.
+/// Computes pairwise distances between all points in parallel using SIMD
+/// acceleration, then identifies the k nearest neighbors for each point based
+/// on Euclidean distance. Handles edge cases like empty inputs, single points,
+/// and when k exceeds available neighbors.
 ///
 /// # Arguments
 ///
@@ -24,10 +25,13 @@ use std::cmp::min;
 /// # Returns
 ///
 /// A tuple containing:
-/// - `neighbor_array`: Matrix of shape `(n, min(k, n-1))` containing indices of nearest neighbors
-/// - `distance_array`: Matrix of shape `(n, min(k, n-1))` containing distances to nearest neighbors
+/// - `neighbor_array`: Matrix of shape `(n, min(k, n-1))` containing indices of
+///   nearest neighbors
+/// - `distance_array`: Matrix of shape `(n, min(k, n-1))` containing distances
+///   to nearest neighbors
 ///
-/// Returns empty arrays if input is empty. For a single input point, arrays will have 0 columns.
+/// Returns empty arrays if input is empty. For a single input point, arrays
+/// will have 0 columns.
 pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>, Array2<f32>) {
     let n = data.nrows();
 
@@ -212,7 +216,8 @@ mod tests {
     ///
     /// * `neighbor_indices` - Computed matrix of nearest neighbor indices
     /// * `distances` - Computed matrix of distances to nearest neighbors
-    /// * `expected` - Vector of expected (point_idx, vec![(neighbor_idx, distance)]) tuples
+    /// * `expected` - Vector of expected (point_idx, vec![(neighbor_idx,
+    ///   distance)]) tuples
     fn check_neighbors_and_distances(
         neighbor_indices: &Array2<u32>,
         distances: &Array2<f32>,

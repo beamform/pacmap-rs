@@ -1,20 +1,25 @@
 //! # `PaCMAP`: Pairwise Controlled Manifold Approximation
 //!
-//! This crate provides a Rust implementation of `PaCMAP` (Pairwise Controlled Manifold Approximation),
-//! a dimensionality reduction technique that preserves both local and global structure of high-dimensional data.
+//! This crate provides a Rust implementation of `PaCMAP` (Pairwise Controlled
+//! Manifold Approximation), a dimensionality reduction technique that preserves
+//! both local and global structure of high-dimensional data.
 //!
-//! `PaCMAP` transforms high-dimensional data into a lower-dimensional representation while preserving important
-//! relationships between points. This is useful for visualization, analysis, and as preprocessing for other algorithms.
+//! `PaCMAP` transforms high-dimensional data into a lower-dimensional
+//! representation while preserving important relationships between points. This
+//! is useful for visualization, analysis, and as preprocessing for other
+//! algorithms.
 //!
 //! ## Key Features
 //!
-//! `PaCMAP` preserves both local and global structure through three types of point relationships:
+//! `PaCMAP` preserves both local and global structure through three types of
+//! point relationships:
 //! - Nearest neighbor pairs preserve local structure
 //! - Mid-near pairs preserve intermediate structure
 //! - Far pairs prevent collapse and maintain separation
 //!
 //! The implementation provides:
-//! - Configurable optimization with adaptive learning rates via Adam optimization
+//! - Configurable optimization with adaptive learning rates via Adam
+//!   optimization
 //! - Phase-based weight schedules to balance local and global preservation
 //! - Multiple initialization options including PCA and random seeding
 //! - Optional snapshot capture of intermediate states
@@ -64,11 +69,14 @@
 //!   - `Value(array)` - Use provided coordinates
 //!   - `Random(seed)` - Random initialization with optional seed
 //! - `learning_rate`: Learning rate for Adam optimizer (default: 1.0)
-//! - `num_iters`: Iteration counts for three optimization phases (default: (100, 100, 250))
-//! - `snapshots`: Optional vector of iterations at which to save embedding states
+//! - `num_iters`: Iteration counts for three optimization phases (default:
+//!   (100, 100, 250))
+//! - `snapshots`: Optional vector of iterations at which to save embedding
+//!   states
 //!
 //! Pair sampling parameters:
-//! - `mid_near_ratio`: Ratio of mid-near to nearest neighbor pairs (default: 0.5)
+//! - `mid_near_ratio`: Ratio of mid-near to nearest neighbor pairs (default:
+//!   0.5)
 //! - `far_pair_ratio`: Ratio of far to nearest neighbor pairs (default: 2.0)
 //! - `override_neighbors`: Optional fixed neighbor count override
 //! - `seed`: Optional random seed for reproducible sampling
@@ -91,8 +99,9 @@
 
 use crate::adam::update_embedding_adam;
 use crate::gradient::pacmap_grad;
-use crate::neighbors::{generate_pair, generate_pair_no_neighbors};
+use crate::neighbors::{generate_pair_no_neighbors, generate_pairs};
 use crate::weights::find_weights;
+use std::cmp::min;
 
 use bon::Builder;
 use ndarray::{s, Array1, Array2, Array3, ArrayView2, Axis, Zip};
@@ -119,7 +128,8 @@ mod tests;
 
 /// Configuration options controlling the `PaCMAP` embedding process.
 ///
-/// Controls initialization, sampling ratios, optimization parameters, and snapshot capture.
+/// Controls initialization, sampling ratios, optimization parameters, and
+/// snapshot capture.
 #[derive(Builder, Clone, Debug)]
 pub struct Configuration {
     /// Number of dimensions in the output embedding space, typically 2 or 3
@@ -152,7 +162,8 @@ pub struct Configuration {
     #[builder(default = 1.0)]
     pub learning_rate: f32,
 
-    /// Number of iterations for attraction, local structure, and global structure phases
+    /// Number of iterations for attraction, local structure, and global
+    /// structure phases
     #[builder(default = (100, 100, 250))]
     pub num_iters: (usize, usize, usize),
 
@@ -227,15 +238,21 @@ pub enum PairConfiguration {
 /// # Returns
 /// A tuple containing:
 /// * Final embedding coordinates as a matrix
-/// * Optional array of intermediate embedding states if snapshots were requested
+/// * Optional array of intermediate embedding states if snapshots were
+///   requested
 ///
 /// # Errors
 /// * `PaCMapError::SampleSize` if input has <= 1 samples
-/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is invalid
-/// * `PaCMapError::InvalidFarPointCount` if calculated far point count is invalid
-/// * `PaCMapError::InvalidNearestNeighborShape` if provided neighbor pairs have wrong shape
-/// * `PaCMapError::EmptyArrayMean` if mean cannot be calculated for preprocessing
-/// * `PaCMapError::EmptyArrayMinMax` if min/max cannot be found during preprocessing
+/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is
+///   invalid
+/// * `PaCMapError::InvalidFarPointCount` if calculated far point count is
+///   invalid
+/// * `PaCMapError::InvalidNearestNeighborShape` if provided neighbor pairs have
+///   wrong shape
+/// * `PaCMapError::EmptyArrayMean` if mean cannot be calculated for
+///   preprocessing
+/// * `PaCMapError::EmptyArrayMinMax` if min/max cannot be found during
+///   preprocessing
 /// * `PaCMapError::Pca` if PCA decomposition fails
 /// * `PaCMapError::Normal` if random initialization fails
 pub fn fit_transform(
@@ -251,6 +268,7 @@ pub fn fit_transform(
         x,
         pca_solution,
         transform,
+        ..
     } = preprocess_x(
         x,
         matches!(config.initialization, Initialization::Pca),
@@ -303,6 +321,7 @@ pub fn fit_transform(
 }
 
 /// Results from preprocessing input data.
+#[allow(dead_code)]
 struct PreprocessingResult {
     /// Preprocessed data matrix
     x: Array2<f32>,
@@ -312,6 +331,15 @@ struct PreprocessingResult {
 
     /// Fitted dimensionality reduction transform
     transform: Transform,
+
+    /// Minimum x value
+    x_min: f32,
+
+    /// Maximum x value
+    x_max: f32,
+
+    /// Mean of x along axis 0
+    x_mean: Array1<f32>,
 }
 
 /// Types of dimensionality reduction transforms used for initialization.
@@ -343,10 +371,12 @@ impl Transform {
     }
 }
 
-/// Preprocesses input data through normalization and optional dimensionality reduction.
+/// Preprocesses input data through normalization and optional dimensionality
+/// reduction.
 ///
-/// For high dimensional data (>100 dimensions), optionally applies PCA to reduce to 100 dimensions.
-/// Otherwise normalizes the data by centering and scaling.
+/// For high dimensional data (>100 dimensions), optionally applies PCA to
+/// reduce to 100 dimensions. Otherwise normalizes the data by centering and
+/// scaling.
 ///
 /// # Arguments
 /// * `x` - Input data matrix
@@ -370,79 +400,84 @@ fn preprocess_x(
     maybe_seed: Option<u64>,
 ) -> Result<PreprocessingResult, PaCMapError> {
     let mut pca_solution = false;
+    let mut x_out: Array2<f32>;
     let x_mean: Array1<f32>;
     let x_min: f32;
     let x_max: f32;
+    let transform: Transform;
 
-    let (x, transform) = if high_dim > 100 && apply_pca {
-        // Compute the mean of x along axis 0 (for output purposes)
-        // x_mean = x.mean_axis(Axis(0)).ok_or(PaCMapError::EmptyArrayMean)?;
+    if high_dim > 100 && apply_pca {
+        let n_components = min(100, x.nrows());
+        // Compute the mean of x along axis 0
+        x_mean = x.mean_axis(Axis(0)).ok_or(PaCMapError::EmptyArrayMean)?;
 
-        // Initialize PCA with n_components=100 and transform
-        let (x, transform) = match maybe_seed {
+        // Initialize PCA and transform
+        match maybe_seed {
             None => {
-                let mut pca = RandomizedPca::new(100);
-                (pca.fit_transform(&x)?, Transform::RandomizedPca(pca))
+                let mut pca = RandomizedPca::new(n_components);
+                x_out = pca.fit_transform(&x)?;
+                transform = Transform::RandomizedPca(pca);
             }
             Some(seed) => {
                 let mut pca =
-                    RandomizedPcaBuilder::with_rng(SmallRng::seed_from_u64(seed), 100).build();
-                (pca.fit_transform(&x)?, Transform::SeededPca(pca))
+                    RandomizedPcaBuilder::with_rng(SmallRng::seed_from_u64(seed), n_components)
+                        .build();
+
+                x_out = pca.fit_transform(&x)?;
+                transform = Transform::SeededPca(pca);
             }
         };
 
         pca_solution = true;
 
         // Set x_min and x_max to zero
-        // x_min = 0.0;
-        // x_max = 0.0;
+        x_min = 0.0;
+        x_max = 0.0;
 
-        debug!("Applied PCA, the dimensionality becomes 100");
-
-        // Return components
-        (x, transform)
+        debug!("Applied PCA, the dimensionality becomes {n_components}");
     } else {
-        let mut x = x.to_owned();
+        x_out = x.to_owned();
 
         // Compute x_min and x_max
-        x_min = *x
+        x_min = *x_out
             .iter()
             .min_by(|&a, &b| f32::total_cmp(a, b))
             .ok_or(PaCMapError::EmptyArrayMinMax)?;
 
-        x_max = *x
+        x_max = *x_out
             .iter()
             .max_by(|&a, &b| f32::total_cmp(a, b))
             .ok_or(PaCMapError::EmptyArrayMinMax)?;
 
         // Subtract x_min from x
-        x.mapv_inplace(|val| val - x_min);
+        x_out.mapv_inplace(|val| val - x_min);
 
         // Divide by x_max (not the range) to replicate the Python function
-        x.mapv_inplace(|val| val / x_max);
+        x_out.mapv_inplace(|val| val / x_max);
 
         // Compute x_mean
-        x_mean = x.mean_axis(Axis(0)).ok_or(PaCMapError::EmptyArrayMean)?;
+        x_mean = x_out
+            .mean_axis(Axis(0))
+            .ok_or(PaCMapError::EmptyArrayMean)?;
 
         // Subtract x_mean from x
-        x -= &x_mean;
+        x_out -= &x_mean;
 
         // Proceed with PCA
-        let mut pca = Pca::new(low_dim);
-        pca.fit(&x)?;
+        let n_components = min(x_out.nrows(), low_dim);
+        let mut pca = Pca::new(n_components);
+        pca.fit(&x_out)?;
+        transform = Transform::Pca(pca);
 
-        debug!("X is normalized");
-
-        // Extract components
-        (x, Transform::Pca(pca))
+        debug!("x is normalized");
     };
 
     Ok(PreprocessingResult {
-        x,
+        x: x_out,
         pca_solution,
-        // x_min,
-        // x_max,
-        // x_mean,
+        x_min,
+        x_max,
+        x_mean,
         transform,
     })
 }
@@ -473,8 +508,10 @@ struct PairDecision {
 /// A `PairDecision` containing the calculated pair counts
 ///
 /// # Errors
-/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is less than 1
-/// * `PaCMapError::InvalidFarPointCount` if calculated far pair count is less than 1
+/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is less
+///   than 1
+/// * `PaCMapError::InvalidFarPointCount` if calculated far pair count is less
+///   than 1
 #[allow(clippy::cast_precision_loss)]
 fn decide_num_pairs(
     n: usize,
@@ -534,7 +571,8 @@ struct Pairs {
 /// A `Pairs` struct containing the sampled pair indices
 ///
 /// # Errors
-/// * `PaCMapError::InvalidNearestNeighborShape` if provided pairs have invalid shape
+/// * `PaCMapError::InvalidNearestNeighborShape` if provided pairs have invalid
+///   shape
 fn sample_pairs(
     x: ArrayView2<f32>,
     n_neighbors: usize,
@@ -545,7 +583,7 @@ fn sample_pairs(
 ) -> Result<Pairs, PaCMapError> {
     debug!("Finding pairs");
     match pair_config {
-        PairConfiguration::Generate => Ok(generate_pair(x, n_neighbors, n_mn, n_fp, random_state)),
+        PairConfiguration::Generate => Ok(generate_pairs(x, n_neighbors, n_mn, n_fp, random_state)),
         PairConfiguration::NeighborsProvided { pair_neighbors } => {
             let expected_shape = [x.nrows() * n_neighbors, 2];
             if pair_neighbors.shape() != expected_shape {
@@ -604,8 +642,9 @@ enum YInit {
 
 /// Core `PaCMAP` optimization function.
 ///
-/// Iteratively updates embedding coordinates through gradient descent to preserve data structure.
-/// Uses phase-based weight schedules to balance local and global structure preservation.
+/// Iteratively updates embedding coordinates through gradient descent to
+/// preserve data structure. Uses phase-based weight schedules to balance local
+/// and global structure preservation.
 ///
 /// # Arguments
 /// * `x` - Input data matrix

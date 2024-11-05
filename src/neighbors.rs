@@ -15,8 +15,10 @@ use crate::sampling::{
 };
 use crate::Pairs;
 use ndarray::{s, Array1, Array2, ArrayView2, Axis};
+use std::cmp::min;
 
-/// Generates all three pair types needed for `PaCMAP`: nearest neighbors, mid-near, and far pairs.
+/// Generates all three pair types needed for `PaCMAP`: nearest neighbors,
+/// mid-near, and far pairs.
 ///
 /// This function handles the complete pair sampling pipeline:
 /// 1. Finds k-nearest neighbors with extra padding for robustness
@@ -33,7 +35,7 @@ use ndarray::{s, Array1, Array2, ArrayView2, Axis};
 ///
 /// # Returns
 /// A `Pairs` struct containing arrays of indices for each pair type
-pub fn generate_pair(
+pub fn generate_pairs(
     x: ArrayView2<f32>,
     n_neighbors: usize,
     n_mn: usize,
@@ -49,10 +51,13 @@ pub fn generate_pair(
     // Find k-nearest neighbors and distances
     let (neighbors, knn_distances) = find_k_nearest_neighbors(x, n_neighbors_extra);
 
-    // Calculate scaling using mean distance of moderately distant neighbors (indices 3-5)
-    // This provides robustness compared to using nearest or farthest neighbors
+    // Calculate scaling using mean distance of moderately distant neighbors
+    // (indices 3-5) This provides robustness compared to using nearest or
+    // farthest neighbors
+    let start = min(3, knn_distances.ncols().saturating_sub(1));
+    let end = min(6, knn_distances.ncols());
     let sig = knn_distances
-        .slice(s![.., 3_usize..6_usize])
+        .slice(s![.., start..end])
         .mean_axis(Axis(1))
         .map_or_else(|| Array1::from_elem(n, 1e-10), |d| d.mapv(|x| x.max(1e-10)));
 
@@ -81,10 +86,12 @@ pub fn generate_pair(
     }
 }
 
-/// Generates only mid-near and far pairs using pre-computed nearest neighbor pairs.
+/// Generates only mid-near and far pairs using pre-computed nearest neighbor
+/// pairs.
 ///
-/// This function is used when nearest neighbor pairs are already available, avoiding
-/// redundant neighbor computation while still generating the other required pair types.
+/// This function is used when nearest neighbor pairs are already available,
+/// avoiding redundant neighbor computation while still generating the other
+/// required pair types.
 ///
 /// # Arguments
 /// * `x` - Input data matrix with dimensions (`n_samples`, `n_features`)
