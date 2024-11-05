@@ -22,9 +22,6 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: rust-check
-          cache-all-crates: true
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -56,9 +53,6 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: rust-test
-          cache-all-crates: true
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -84,9 +78,6 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: rust-dependencies
-          cache-all-crates: true
 
       - name: Set up nightly Rust toolchain
         uses: actions-rs/toolchain@v1
