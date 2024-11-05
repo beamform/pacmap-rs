@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0](https://github.com/beamform/pacmap-rs/compare/v0.1.0...v0.1.0) (2024-11-05)
+
+
+### Miscellaneous Chores
+
+* release 0.1.0 ([a7651ac](https://github.com/beamform/pacmap-rs/commit/a7651ac079d65a2630215798f9178f33d54077c6))
+
 ## 0.1.0 (2024-11-05)
 
 
