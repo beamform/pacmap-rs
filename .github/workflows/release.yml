@@ -33,11 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install BLAS
-        uses: Eeems-Org/apt-cache-action@v1
-        with:
-          packages: libopenblas-dev
-
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
