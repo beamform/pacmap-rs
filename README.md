@@ -86,6 +86,8 @@ fn main() -> Result<()> {
 }
 ```
 
+For a standalone example, see the [pacmap-rs-example repository](https://github.com/beamform/pacmap-rs-example).
+
 ## Configuration
 
 ### Core Parameters
