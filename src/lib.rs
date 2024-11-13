@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_crate_versions)]
+
 //! # `PaCMAP`: Pairwise Controlled Manifold Approximation
 //!
 //! This crate provides a Rust implementation of `PaCMAP` (Pairwise Controlled
@@ -103,6 +105,7 @@ use crate::neighbors::{generate_pair_no_neighbors, generate_pairs};
 use crate::weights::find_weights;
 use std::cmp::min;
 
+use crate::knn::KnnError;
 use bon::Builder;
 use ndarray::{s, Array1, Array2, Array3, ArrayView2, Axis, Zip};
 use ndarray_rand::rand_distr::{Normal, NormalError};
@@ -118,7 +121,7 @@ use tracing::{debug, warn};
 mod adam;
 mod distance;
 mod gradient;
-mod knn;
+pub mod knn;
 mod neighbors;
 mod sampling;
 mod weights;
@@ -190,6 +193,7 @@ impl Default for Configuration {
 
 /// Methods for initializing embedding coordinates.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum Initialization {
     /// Project data using PCA
     #[default]
@@ -204,6 +208,7 @@ pub enum Initialization {
 
 /// Controls point pair sampling strategy during embedding optimization.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum PairConfiguration {
     /// Sample all pairs from scratch based on distances.
     /// Most computationally intensive but requires no prior information.
@@ -343,6 +348,7 @@ struct PreprocessingResult {
 }
 
 /// Types of dimensionality reduction transforms used for initialization.
+#[non_exhaustive]
 enum Transform {
     /// Standard PCA
     Pca(Pca<f32>),
@@ -583,7 +589,9 @@ fn sample_pairs(
 ) -> Result<Pairs, PaCMapError> {
     debug!("Finding pairs");
     match pair_config {
-        PairConfiguration::Generate => Ok(generate_pairs(x, n_neighbors, n_mn, n_fp, random_state)),
+        PairConfiguration::Generate => {
+            Ok(generate_pairs(x, n_neighbors, n_mn, n_fp, random_state)?)
+        }
         PairConfiguration::NeighborsProvided { pair_neighbors } => {
             let expected_shape = [x.nrows() * n_neighbors, 2];
             if pair_neighbors.shape() != expected_shape {
@@ -797,6 +805,7 @@ impl<'a> Snapshots<'a> {
 
 /// Errors that can occur during `PaCMAP` embedding.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum PaCMapError {
     /// Input data has 1 or fewer samples
     #[error("Sample size must be larger than one")]
@@ -838,4 +847,8 @@ pub enum PaCMapError {
     /// PCA decomposition failed
     #[error(transparent)]
     Pca(#[from] DecompositionError),
+
+    /// K-nearest neighbors error
+    #[error(transparent)]
+    Neighbors(#[from] KnnError),
 }

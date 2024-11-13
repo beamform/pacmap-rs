@@ -6,9 +6,84 @@
 //! preserve local structure during the dimensionality reduction process.
 
 use crate::distance::simd_euclidean_distance;
-use ndarray::{Array2, ArrayView2};
+use ndarray::{Array2, ArrayView2, Axis, Zip};
 use rayon::prelude::*;
 use std::cmp::min;
+use thiserror::Error;
+use tracing::error;
+use usearch::ffi::Matches;
+use usearch::{IndexOptions, MetricKind};
+
+pub fn find_k_nearest_neighbors_approx(
+    data: ArrayView2<f32>,
+    k: usize,
+) -> Result<(Array2<u32>, Array2<f32>), KnnError> {
+    let n = data.nrows();
+
+    let options = IndexOptions {
+        dimensions: data.ncols(),
+        metric: MetricKind::L2sq,
+        multi: true,
+        ..Default::default()
+    };
+
+    let index = usearch::new_index(&options).map_err(|e| KnnError::Construction(e.to_string()))?;
+
+    index
+        .reserve(n)
+        .map_err(|e| KnnError::Reservation(e.to_string()))?;
+
+    Zip::indexed(data.axis_iter(Axis(0))).par_for_each(|i, vector| {
+        let result = match vector.as_slice() {
+            None => {
+                let vector = vector.to_vec();
+                index.add(i as u64, &vector)
+            }
+            Some(slice) => index.add(i as u64, slice),
+        };
+
+        if let Err(error) = result {
+            error!("failed to add vector to index: {error}; skipping");
+        }
+    });
+
+    let mut neighbors = Array2::zeros((n, k));
+    let mut distances = Array2::zeros((n, k));
+
+    Zip::indexed(data.axis_iter(Axis(0)))
+        .and(neighbors.axis_iter_mut(Axis(0)))
+        .and(distances.axis_iter_mut(Axis(0)))
+        .par_for_each(|i, vector, mut nbrs, mut dists| {
+            let identity_check = |key| key != i as u64;
+            let result = match vector.as_slice() {
+                None => {
+                    let vector = vector.to_vec();
+                    index.filtered_search(&vector, k, identity_check)
+                }
+                Some(slice) => index.filtered_search(slice, k, identity_check),
+            };
+
+            let (keys, distances) = match result {
+                Ok(Matches { keys, distances }) => (keys, distances),
+                Err(error) => {
+                    error!("index search failed: {error}; skipping");
+                    return;
+                }
+            };
+
+            for (((nbr, dist), key), distance) in nbrs
+                .iter_mut()
+                .zip(dists.iter_mut())
+                .zip(keys.into_iter())
+                .zip(distances.into_iter())
+            {
+                *nbr = key as u32;
+                *dist = distance.sqrt();
+            }
+        });
+
+    Ok((neighbors, distances))
+}
 
 /// Finds k-nearest neighbors for a set of high-dimensional data points.
 ///
@@ -90,6 +165,15 @@ pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>
     }
 
     (neighbor_array, distance_array)
+}
+
+#[derive(Debug, Error)]
+pub enum KnnError {
+    #[error("failed to construct index: {0}")]
+    Construction(String),
+
+    #[error("failed to reserve space for vectors: {0}")]
+    Reservation(String),
 }
 
 #[cfg(test)]

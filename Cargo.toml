@@ -28,12 +28,15 @@ petal-decomposition = "0.8"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_pcg = "0.3"
 rayon = "1.10"
-thiserror = "1.0"
+thiserror = "2.0"
 tracing = "0.1"
+usearch = "2.16"
 wide = "0.7"
 
 [dev-dependencies]
 approx = "0.5"
+criterion = "0.5"
+mimalloc = "0.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 
@@ -92,3 +95,13 @@ codegen-units = 1
 panic = "abort"
 debug = "full"
 opt-level = 3
+
+[profile.bench]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+
+[[bench]]
+name = "knn_bench"
+path = "benches/knn_bench.rs"
+harness = false

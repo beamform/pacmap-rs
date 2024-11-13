@@ -8,7 +8,7 @@
 //! The module supports both deterministic and non-deterministic pair sampling.
 
 use crate::distance::scale_dist;
-use crate::knn::find_k_nearest_neighbors;
+use crate::knn::{find_k_nearest_neighbors, find_k_nearest_neighbors_approx, KnnError};
 use crate::sampling::{
     sample_fp_pair, sample_fp_pair_deterministic, sample_mn_pair, sample_mn_pair_deterministic,
     sample_neighbors_pair,
@@ -41,7 +41,7 @@ pub fn generate_pairs(
     n_mn: usize,
     n_fp: usize,
     random_state: Option<u64>,
-) -> Pairs {
+) -> Result<Pairs, KnnError> {
     let n = x.nrows();
 
     // Add padding neighbors for robustness in selecting final pairs
@@ -49,7 +49,11 @@ pub fn generate_pairs(
     let n_neighbors = n_neighbors.min(n - 1);
 
     // Find k-nearest neighbors and distances
-    let (neighbors, knn_distances) = find_k_nearest_neighbors(x, n_neighbors_extra);
+    let (neighbors, knn_distances) = if n < 8_000 {
+        find_k_nearest_neighbors(x, n_neighbors_extra)
+    } else {
+        find_k_nearest_neighbors_approx(x, n_neighbors_extra)?
+    };
 
     // Calculate scaling using mean distance of moderately distant neighbors
     // (indices 3-5) This provides robustness compared to using nearest or
@@ -79,11 +83,11 @@ pub fn generate_pairs(
         ),
     };
 
-    Pairs {
+    Ok(Pairs {
         pair_neighbors,
         pair_mn,
         pair_fp,
-    }
+    })
 }
 
 /// Generates only mid-near and far pairs using pre-computed nearest neighbor
