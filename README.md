@@ -22,6 +22,14 @@ three types of point relationships:
 
 For details on the algorithm, see the [original paper](https://jmlr.org/papers/v22/20-1061.html).
 
+## Features
+
+- Fast approximate nearest neighbors for large datasets using USearch
+- SIMD-optimized distance calculations
+- Parallel processing with Rayon
+- Optional PCA initialization using various BLAS backends
+- Reproducible results with optional seeding
+
 ## Usage
 
 Basic usage with default parameters:
@@ -61,6 +69,7 @@ fn main() -> Result<()> {
         .num_iters((50, 50, 100))
         .mid_near_ratio(0.3)
         .far_pair_ratio(2.0)
+        .approx_threshold(8_000)  // Use approximate neighbors above this size
         .build();
 
     let (embedding, _) = fit_transform(data.view(), config)?;
@@ -70,7 +79,7 @@ fn main() -> Result<()> {
 
 Capturing intermediate states:
 
-```rust 
+```rust
 use anyhow::Result;
 use pacmap::Configuration;
 
@@ -103,6 +112,7 @@ For a standalone example, see the [pacmap-rs-example repository](https://github.
     2. Balanced weight phase
     3. Local structure focus phase
 - `snapshots`: Optional vector of iterations at which to save embedding states
+- `approx_threshold`: Number of samples above which to use approximate nearest neighbors (default: 8,000)
 
 ### Pair Sampling Parameters
 
@@ -143,8 +153,7 @@ information about BLAS/LAPACK backend configuration and performance consideratio
 This implementation currently:
 
 - Only supports Euclidean distances
-- Uses exact rather than approximate nearest neighbors
-- Has not been optimized for very large datasets
+- Does not support incremental transform
 
 ## References
 
