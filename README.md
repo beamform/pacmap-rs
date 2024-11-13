@@ -34,10 +34,10 @@ For details on the algorithm, see the [original paper](https://jmlr.org/papers/v
 
 ### GCC Version
 
-This crate uses USearch for efficient nearest neighbor search, which requires GCC 11+ to build and a recent glibc to
+This crate uses USearch for efficient nearest neighbor search, which requires GCC 13+ to build and a recent glibc to
 run. You may need to install a newer GCC version on your system.
 
-On Debian/Ubuntu:
+For Ubuntu, upgrade to 24.04. On Debian:
 
 ```bash
 # Add testing repo
