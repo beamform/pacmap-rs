@@ -75,6 +75,8 @@
 //!   (100, 100, 250))
 //! - `snapshots`: Optional vector of iterations at which to save embedding
 //!   states
+//! - `approx_threshold`: Number of points above which approximate neighbor
+//!   search is used
 //!
 //! Pair sampling parameters:
 //! - `mid_near_ratio`: Ratio of mid-near to nearest neighbor pairs (default:
