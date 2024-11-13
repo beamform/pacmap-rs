@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/beamform/pacmap-rs/compare/v0.1.0...v0.2.0) (2024-11-13)
+
+
+### Features
+
+* **knn:** add approximate nearest neighbor search with USearch ([#8](https://github.com/beamform/pacmap-rs/issues/8)) ([3c2bb44](https://github.com/beamform/pacmap-rs/commit/3c2bb440d312d5fdb35ee3e3f5f660eab7542aa1))
+
 ## 0.1.0 (2024-11-05)
 
 ### Features
