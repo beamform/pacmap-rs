@@ -1,13 +1,21 @@
-//! Manages pair generation for `PaCMAP` dimensionality reduction.
+//! Manages sampling of point pairs for `PaCMAP` dimensionality reduction.
 //!
-//! This module generates point pairs that control how structure is preserved:
-//! - Nearest neighbor pairs capture local neighborhoods and distances
-//! - Mid-near pairs maintain relationships between moderately distant points
-//! - Far pairs prevent the embedding from collapsing by keeping distant points
-//!   separated
+//! This module generates three key types of point pairs that control how
+//! structure is preserved during dimension reduction:
 //!
-//! Supports both deterministic and non-deterministic sampling with optional
-//! random seeds.
+//! - Nearest neighbor pairs preserve local neighborhoods and distances by
+//!   connecting each point to its closest neighbors
+//!
+//! - Mid-near pairs maintain relationships between moderately distant points to
+//!   capture intermediate structure and prevent overfitting to local
+//!   neighborhoods
+//!
+//! - Far pairs prevent the embedding from collapsing by introducing repulsive
+//!   forces between distant points
+//!
+//! The module supports both deterministic (seeded) and non-deterministic pair
+//! sampling. For larger datasets, it can use approximate nearest neighbor
+//! search to improve performance.
 
 use crate::distance::scale_dist;
 use crate::knn::{find_k_nearest_neighbors, find_k_nearest_neighbors_approx, KnnError};
@@ -19,48 +27,55 @@ use crate::Pairs;
 use ndarray::{s, Array1, Array2, ArrayView2, Axis};
 use std::cmp::min;
 
-/// Builds the complete set of point pairs needed for `PaCMAP` optimization.
+/// Generates the complete set of point pairs needed for `PaCMAP` optimization.
 ///
-/// Creates all three pair types through a multistep process:
-/// 1. Finds k-nearest neighbors with padding for robustness
+/// Creates all three pair types (nearest neighbor, mid-near, far) through a
+/// multi-step process:
+///
+/// 1. Finds k-nearest neighbors with padding for robust pair selection
 /// 2. Computes scaling factors from moderately distant neighbors (indices 3-5)
-/// 3. Applies distance scaling
+/// 3. Applies distance scaling to normalize neighborhood sizes
 /// 4. Samples neighbor pairs based on scaled distances
 /// 5. Generates mid-near and far pairs either deterministically or randomly
 ///
 /// # Arguments
-/// * `x` - Input data as an n × d matrix
-/// * `n_neighbors` - Number of nearest neighbors per point
-/// * `n_mn` - Number of mid-near pairs per point
-/// * `n_fp` - Number of far pairs per point
-/// * `random_state` - Optional seed for deterministic sampling
+/// * `x` - Input data as an n × d matrix where each row is a point
+/// * `n_neighbors` - Number of nearest neighbors to find per point
+/// * `n_mn` - Number of mid-near pairs to generate per point
+/// * `n_fp` - Number of far pairs to generate per point
+/// * `random_state` - Optional seed for deterministic pair sampling
+/// * `approx_threshold` - Row count threshold for switching to approximate
+///   neighbor search
 ///
 /// # Returns
-/// A `Pairs` struct containing arrays of indices for each pair type
+/// A `Pairs` struct containing the neighbor, mid-near, and far pair indices
 ///
 /// # Errors
-/// Returns `KnnError` if the k-nearest neighbors search fails
+/// Returns `KnnError` if k-nearest neighbor search fails due to index
+/// construction or memory allocation issues
 pub fn generate_pairs(
     x: ArrayView2<f32>,
     n_neighbors: usize,
     n_mn: usize,
     n_fp: usize,
     random_state: Option<u64>,
+    approx_threshold: usize,
 ) -> Result<Pairs, KnnError> {
     let n = x.nrows();
 
-    // Add padding neighbors for robustness in selecting final pairs
+    // Add padding neighbors for robust pair selection
     let n_neighbors_extra = (n_neighbors + 50).min(n - 1);
     let n_neighbors = n_neighbors.min(n - 1);
 
     // Use exact neighbors for small datasets, approximate for large ones
-    let (neighbors, knn_distances) = if n < 8_000 {
+    let (neighbors, knn_distances) = if n < approx_threshold {
         find_k_nearest_neighbors(x, n_neighbors_extra)
     } else {
         find_k_nearest_neighbors_approx(x, n_neighbors_extra)?
     };
 
-    // Scale distances using moderately distant neighbors for robustness
+    // Scale distances using moderately distant neighbors (indices 3-5)
+    // for robust neighborhood size estimation
     let start = min(3, knn_distances.ncols().saturating_sub(1));
     let end = min(6, knn_distances.ncols());
     let sig = knn_distances
@@ -73,7 +88,7 @@ pub fn generate_pairs(
     let pair_neighbors =
         sample_neighbors_pair(x.view(), scaled_dist.view(), neighbors_view, n_neighbors);
 
-    // Generate remaining pairs either deterministically or randomly
+    // Generate mid-near and far pairs either deterministically or randomly
     let (pair_mn, pair_fp) = match random_state {
         Some(seed) => (
             sample_mn_pair_deterministic(x.view(), n_mn, seed),
@@ -94,13 +109,12 @@ pub fn generate_pairs(
 
 /// Generates mid-near and far pairs from pre-computed nearest neighbors.
 ///
-/// Used when nearest neighbor pairs have already been computed, to avoid
-/// redundant distance calculations while still generating the other required
-/// pair types.
+/// Efficiently generates additional pairs when nearest neighbors have already
+/// been computed, avoiding redundant distance calculations.
 ///
 /// # Arguments
-/// * `x` - Input data as an n × d matrix
-/// * `n_neighbors` - Number of nearest neighbors used to generate input pairs
+/// * `x` - Input data as an n × d matrix where each row is a point
+/// * `n_neighbors` - Number of nearest neighbors used in input pairs
 /// * `n_mn` - Number of mid-near pairs to generate per point
 /// * `n_fp` - Number of far pairs to generate per point
 /// * `pair_neighbors` - Pre-computed nearest neighbor pair indices
@@ -108,8 +122,8 @@ pub fn generate_pairs(
 ///
 /// # Returns
 /// A tuple containing:
-/// - Mid-near pair indices as an (n*`n_mn`) × 2 array
-/// - Far pair indices as an (n*`n_fp`) × 2 array
+/// - Mid-near pair indices as an (n × `n_mn`) × 2 array
+/// - Far pair indices as an (n × `n_fp`) × 2 array
 pub fn generate_pair_no_neighbors(
     x: ArrayView2<f32>,
     n_neighbors: usize,
