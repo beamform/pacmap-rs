@@ -12,33 +12,20 @@ env:
 
 jobs:
   title:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Run Commit Lint
         uses: opensource-nepal/commitlint@v1
 
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Add Ubuntu Toolchain PPA
-        run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update -yq
-
-      - name: Install GCC 13 and BLAS
+      - name: Install BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: gcc-13 g++-13 libopenblas-dev
-
-      - name: Set GCC 13 as default
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
-            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
-            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
-          export CC=/usr/bin/gcc-13
-          export CXX=/usr/bin/g++-13
+          packages: libopenblas-dev
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,26 +50,13 @@ jobs:
           args: --features openblas-system -- -D warnings
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Add Ubuntu Toolchain PPA
-        run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update -yq
-
-      - name: Install GCC 13 and BLAS
+      - name: Install BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: gcc-13 g++-13 libopenblas-dev
-
-      - name: Set GCC 13 as default
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
-            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
-            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
-          export CC=/usr/bin/gcc-13
-          export CXX=/usr/bin/g++-13
+          packages: libopenblas-dev
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -101,26 +75,13 @@ jobs:
           args: --features openblas-system
 
   dependencies:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Add Ubuntu Toolchain PPA
-        run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update -yq
-
-      - name: Install GCC 13 and BLAS
+      - name: Install BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: gcc-13 g++-13 libopenblas-dev
-
-      - name: Set GCC 13 as default
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
-            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
-            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
-          export CC=/usr/bin/gcc-13
-          export CXX=/usr/bin/g++-13
+          packages: libopenblas-dev
 
       - name: Checkout code
         uses: actions/checkout@v4
