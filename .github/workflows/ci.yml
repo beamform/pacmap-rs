@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+env:
+  RUSTFLAGS: "-C target-cpu=native"
+  CARGO_TERM_COLOR: always
+
 jobs:
   title:
     runs-on: ubuntu-latest
@@ -18,10 +22,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install BLAS
+      - name: Add Ubuntu Toolchain PPA
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -yq
+
+      - name: Install GCC 13 and BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: libopenblas-dev
+          packages: gcc-13 g++-13 libopenblas-dev
+
+      - name: Set GCC 13 as default
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
+            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
+            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
+          export CC=/usr/bin/gcc-13
+          export CXX=/usr/bin/g++-13
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,10 +66,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install BLAS
+      - name: Add Ubuntu Toolchain PPA
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -yq
+
+      - name: Install GCC 13 and BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: libopenblas-dev
+          packages: gcc-13 g++-13 libopenblas-dev
+
+      - name: Set GCC 13 as default
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
+            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
+            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
+          export CC=/usr/bin/gcc-13
+          export CXX=/usr/bin/g++-13
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,10 +104,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install BLAS
+      - name: Add Ubuntu Toolchain PPA
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -yq
+
+      - name: Install GCC 13 and BLAS
         uses: Eeems-Org/apt-cache-action@v1
         with:
-          packages: libopenblas-dev
+          packages: gcc-13 g++-13 libopenblas-dev
+
+      - name: Set GCC 13 as default
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
+            --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
+            --slave /usr/bin/gcov gcov /usr/bin/gcov-13
+          export CC=/usr/bin/gcc-13
+          export CXX=/usr/bin/g++-13
 
       - name: Checkout code
         uses: actions/checkout@v4

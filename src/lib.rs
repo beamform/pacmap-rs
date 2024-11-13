@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_crate_versions)]
+
 //! # `PaCMAP`: Pairwise Controlled Manifold Approximation
 //!
 //! This crate provides a Rust implementation of `PaCMAP` (Pairwise Controlled
@@ -73,6 +75,8 @@
 //!   (100, 100, 250))
 //! - `snapshots`: Optional vector of iterations at which to save embedding
 //!   states
+//! - `approx_threshold`: Number of points above which approximate neighbor
+//!   search is used
 //!
 //! Pair sampling parameters:
 //! - `mid_near_ratio`: Ratio of mid-near to nearest neighbor pairs (default:
@@ -83,11 +87,11 @@
 //!
 //! ## Implementation Notes
 //!
-//! - Uses exact rather than approximate nearest neighbors currently
-//! - Only supports Euclidean distances
-//! - Uses ndarray for efficient matrix operations
-//! - Leverages parallel iterators for performance
-//! - Provides detailed error types for robust handling
+//! - Supports both exact and approximate nearest neighbor search
+//! - Uses Euclidean distances for pair relationships
+//! - Leverages ndarray for efficient matrix operations
+//! - Employs parallel iterators via rayon for performance
+//! - Provides detailed error handling with custom error types
 //!
 //! ## References
 //!
@@ -97,11 +101,17 @@
 //!
 //! Original Python implementation: <https://github.com/YingfanWang/PaCMAP>
 
-use crate::adam::update_embedding_adam;
-use crate::gradient::pacmap_grad;
-use crate::neighbors::{generate_pair_no_neighbors, generate_pairs};
-use crate::weights::find_weights;
-use std::cmp::min;
+// Submodule imports
+mod adam;
+mod distance;
+mod gradient;
+pub mod knn;
+mod neighbors;
+mod sampling;
+mod weights;
+
+#[cfg(test)]
+mod tests;
 
 use bon::Builder;
 use ndarray::{s, Array1, Array2, Array3, ArrayView2, Axis, Zip};
@@ -111,22 +121,18 @@ use petal_decomposition::{DecompositionError, Pca, RandomizedPca, RandomizedPcaB
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use rand_pcg::Mcg128Xsl64;
+use std::cmp::min;
 use std::time::Instant;
 use thiserror::Error;
 use tracing::{debug, warn};
 
-mod adam;
-mod distance;
-mod gradient;
-mod knn;
-mod neighbors;
-mod sampling;
-mod weights;
+use crate::adam::update_embedding_adam;
+use crate::gradient::pacmap_grad;
+use crate::knn::KnnError;
+use crate::neighbors::{generate_pair_no_neighbors, generate_pairs};
+use crate::weights::find_weights;
 
-#[cfg(test)]
-mod tests;
-
-/// Configuration options controlling the `PaCMAP` embedding process.
+/// Configuration options for the `PaCMAP` embedding process.
 ///
 /// Controls initialization, sampling ratios, optimization parameters, and
 /// snapshot capture.
@@ -169,6 +175,10 @@ pub struct Configuration {
 
     /// Optional iteration indices at which to save embedding states
     pub snapshots: Option<Vec<usize>>,
+
+    /// Number of points above which approximate neighbor search is used
+    #[builder(default = 8_000)]
+    pub approx_threshold: usize,
 }
 
 impl Default for Configuration {
@@ -184,12 +194,14 @@ impl Default for Configuration {
             learning_rate: 1.0,
             num_iters: (100, 100, 250),
             snapshots: None,
+            approx_threshold: 8_000,
         }
     }
 }
 
-/// Methods for initializing embedding coordinates.
+/// Methods for initializing the embedding coordinates.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum Initialization {
     /// Project data using PCA
     #[default]
@@ -202,8 +214,9 @@ pub enum Initialization {
     Random(Option<u64>),
 }
 
-/// Controls point pair sampling strategy during embedding optimization.
+/// Strategy for sampling pairs during optimization.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub enum PairConfiguration {
     /// Sample all pairs from scratch based on distances.
     /// Most computationally intensive but requires no prior information.
@@ -242,28 +255,29 @@ pub enum PairConfiguration {
 ///   requested
 ///
 /// # Errors
-/// * `PaCMapError::SampleSize` if input has <= 1 samples
-/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is
+/// * `PaCMapError::SampleSize` - Input has <= 1 samples
+/// * `PaCMapError::InvalidNeighborCount` - Calculated neighbor count is invalid
+/// * `PaCMapError::InvalidFarPointCount` - Calculated far point count is
 ///   invalid
-/// * `PaCMapError::InvalidFarPointCount` if calculated far point count is
-///   invalid
-/// * `PaCMapError::InvalidNearestNeighborShape` if provided neighbor pairs have
+/// * `PaCMapError::InvalidNearestNeighborShape` - Provided neighbor pairs have
 ///   wrong shape
-/// * `PaCMapError::EmptyArrayMean` if mean cannot be calculated for
+/// * `PaCMapError::EmptyArrayMean` - Mean cannot be calculated for
 ///   preprocessing
-/// * `PaCMapError::EmptyArrayMinMax` if min/max cannot be found during
+/// * `PaCMapError::EmptyArrayMinMax` - Min/max cannot be found during
 ///   preprocessing
-/// * `PaCMapError::Pca` if PCA decomposition fails
-/// * `PaCMapError::Normal` if random initialization fails
+/// * `PaCMapError::Pca` - PCA decomposition fails
+/// * `PaCMapError::Normal` - Random initialization fails
 pub fn fit_transform(
     x: ArrayView2<f32>,
     config: Configuration,
 ) -> Result<(Array2<f32>, Option<Array3<f32>>), PaCMapError> {
+    // Input validation
     let (n, dim) = x.dim();
     if n <= 1 {
         return Err(PaCMapError::SampleSize);
     }
 
+    // Preprocess input data with optional dimensionality reduction
     let PreprocessingResult {
         x,
         pca_solution,
@@ -277,6 +291,7 @@ pub fn fit_transform(
         config.seed,
     )?;
 
+    // Initialize embedding coordinates
     let embedding_init = if pca_solution {
         YInit::Preprocessed
     } else {
@@ -287,6 +302,7 @@ pub fn fit_transform(
         }
     };
 
+    // Calculate pair sampling parameters
     let pair_decision = decide_num_pairs(
         n,
         config.override_neighbors,
@@ -298,6 +314,7 @@ pub fn fit_transform(
         warn!("Sample size is smaller than n_neighbors. n_neighbors will be reduced.");
     }
 
+    // Sample point pairs for optimization
     let pairs = sample_pairs(
         x.view(),
         pair_decision.n_neighbors,
@@ -305,8 +322,10 @@ pub fn fit_transform(
         pair_decision.n_fp,
         config.pair_configuration,
         config.seed,
+        config.approx_threshold,
     )?;
 
+    // Run optimization to compute embedding
     pacmap(
         x.view(),
         config.embedding_dimensions,
@@ -343,6 +362,7 @@ struct PreprocessingResult {
 }
 
 /// Types of dimensionality reduction transforms used for initialization.
+#[non_exhaustive]
 enum Transform {
     /// Standard PCA
     Pca(Pca<f32>),
@@ -508,9 +528,9 @@ struct PairDecision {
 /// A `PairDecision` containing the calculated pair counts
 ///
 /// # Errors
-/// * `PaCMapError::InvalidNeighborCount` if calculated neighbor count is less
+/// * `PaCMapError::InvalidNeighborCount` - Calculated neighbor count is less
 ///   than 1
-/// * `PaCMapError::InvalidFarPointCount` if calculated far pair count is less
+/// * `PaCMapError::InvalidFarPointCount` - Calculated far pair count is less
 ///   than 1
 #[allow(clippy::cast_precision_loss)]
 fn decide_num_pairs(
@@ -519,6 +539,7 @@ fn decide_num_pairs(
     mn_ratio: f32,
     fp_ratio: f32,
 ) -> Result<PairDecision, PaCMapError> {
+    // Scale neighbors with data size or use override
     let n_neighbors = n_neighbors.unwrap_or_else(|| {
         if n <= 10000 {
             10
@@ -530,6 +551,7 @@ fn decide_num_pairs(
     let n_mn = (n_neighbors as f32 * mn_ratio).round() as usize;
     let n_fp = (n_neighbors as f32 * fp_ratio).round() as usize;
 
+    // Validate calculated pair counts
     if n_neighbors < 1 {
         return Err(PaCMapError::InvalidNeighborCount);
     }
@@ -566,6 +588,8 @@ struct Pairs {
 /// * `n_fp` - Number of far pairs per point
 /// * `pair_config` - Configuration for pair sampling
 /// * `random_state` - Optional random seed
+/// * `approx_threshold` - Number of points above which approximate search is
+///   used
 ///
 /// # Returns
 /// A `Pairs` struct containing the sampled pair indices
@@ -580,10 +604,21 @@ fn sample_pairs(
     n_fp: usize,
     pair_config: PairConfiguration,
     random_state: Option<u64>,
+    approx_threshold: usize,
 ) -> Result<Pairs, PaCMapError> {
     debug!("Finding pairs");
     match pair_config {
-        PairConfiguration::Generate => Ok(generate_pairs(x, n_neighbors, n_mn, n_fp, random_state)),
+        // Generate all pairs from scratch
+        PairConfiguration::Generate => Ok(generate_pairs(
+            x,
+            n_neighbors,
+            n_mn,
+            n_fp,
+            random_state,
+            approx_threshold,
+        )?),
+
+        // Use provided nearest neighbors, generate remaining pairs
         PairConfiguration::NeighborsProvided { pair_neighbors } => {
             let expected_shape = [x.nrows() * n_neighbors, 2];
             if pair_neighbors.shape() != expected_shape {
@@ -610,6 +645,8 @@ fn sample_pairs(
                 pair_fp,
             })
         }
+
+        // Use all provided pairs without additional sampling
         PairConfiguration::AllProvided {
             pair_neighbors,
             pair_mn,
@@ -682,12 +719,13 @@ fn pacmap<'a>(
     let n = x.nrows();
     let mut inter_snapshots = Snapshots::from(n_dims, n, inter_snapshots);
 
-    // Initialize the embedding
+    // Initialize embedding coordinates based on specified method
     let mut y: Array2<f32> = match y_initialization {
         YInit::Value(mut y) => {
             let mean = y.mean_axis(Axis(0)).ok_or(PaCMapError::EmptyArrayMean)?;
             let std = y.std_axis(Axis(0), 0.0);
 
+            // Center and scale provided coordinates
             Zip::from(&mut y)
                 .and_broadcast(&mean)
                 .and_broadcast(&std)
@@ -711,13 +749,14 @@ fn pacmap<'a>(
         }
     };
 
-    // Initialize parameters for optimizer
+    // Initialize optimizer parameters
     let w_mn_init = 1000.0;
     let beta1 = 0.9;
     let beta2 = 0.999;
     let mut m = Array2::zeros(y.dim());
     let mut v = Array2::zeros(y.dim());
 
+    // Store initial state if snapshots requested
     if let Some(ref mut snapshots) = inter_snapshots {
         snapshots.states.slice_mut(s![0_usize, .., ..]).assign(&y);
     }
@@ -731,7 +770,9 @@ fn pacmap<'a>(
 
     let num_iters_total = num_iters.0 + num_iters.1 + num_iters.2;
 
+    // Main optimization loop
     for itr in 0..num_iters_total {
+        // Update weights based on phase
         let weights = find_weights(w_mn_init, itr, num_iters.0, num_iters.1);
         let grad = pacmap_grad(y.view(), pair_neighbors, pair_mn, pair_fp, &weights);
 
@@ -740,6 +781,7 @@ fn pacmap<'a>(
             debug!("Initial Loss: {}", c);
         }
 
+        // Update embedding with Adam optimizer
         update_embedding_adam(
             y.view_mut(),
             grad.view(),
@@ -755,6 +797,7 @@ fn pacmap<'a>(
             debug!("Iteration: {:4}, Loss: {}", itr + 1, c);
         }
 
+        // Store intermediate state if requested
         let Some(ref mut snapshots) = &mut inter_snapshots else {
             continue;
         };
@@ -797,6 +840,7 @@ impl<'a> Snapshots<'a> {
 
 /// Errors that can occur during `PaCMAP` embedding.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum PaCMapError {
     /// Input data has 1 or fewer samples
     #[error("Sample size must be larger than one")]
@@ -838,4 +882,8 @@ pub enum PaCMapError {
     /// PCA decomposition failed
     #[error(transparent)]
     Pca(#[from] DecompositionError),
+
+    /// K-nearest neighbors error
+    #[error(transparent)]
+    Neighbors(#[from] KnnError),
 }

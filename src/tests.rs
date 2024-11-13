@@ -52,6 +52,7 @@ fn test_fit_transform() {
             learning_rate: 1.0,
             num_iters: (100, 100, 250),
             snapshots: Some(vec![100, 200, 300]),
+            approx_threshold: 8_000,
         },
         // Random initialization with seed
         Configuration {
@@ -65,6 +66,7 @@ fn test_fit_transform() {
             learning_rate: 0.8,
             num_iters: (50, 50, 100),
             snapshots: None,
+            approx_threshold: 8_000,
         },
     ];
 
