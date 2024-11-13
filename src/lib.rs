@@ -26,15 +26,6 @@
 //! - Multiple initialization options including PCA and random seeding
 //! - Optional snapshot capture of intermediate states
 //!
-//! ## System Requirements
-//!
-//! This crate uses `USearch` for efficient nearest neighbor search, which requires:
-//! - GCC 13+ to build
-//! - Recent glibc for runtime
-//!
-//! You may need to install a newer GCC version on your system. See the README for
-//! detailed installation instructions.
-//!
 //! ## Examples
 //!
 //! Basic usage with default parameters:

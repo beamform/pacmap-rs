@@ -21,7 +21,7 @@ netlib-static = ["petal-decomposition/netlib-static", "ndarray/blas"]
 netlib-system = ["petal-decomposition/netlib-system", "ndarray/blas"]
 
 [dependencies]
-bon = "2.3"
+bon = "3.0"
 ndarray = { version = "0.16", features = ["rayon"] }
 ndarray-rand = "0.15"
 petal-decomposition = "0.8"
@@ -30,7 +30,7 @@ rand_pcg = "0.3"
 rayon = "1.10"
 thiserror = "2.0"
 tracing = "0.1"
-usearch = "2.16"
+usearch = "2.15.3"
 wide = "0.7"
 
 [dev-dependencies]
