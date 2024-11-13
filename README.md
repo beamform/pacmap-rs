@@ -128,26 +128,34 @@ For a standalone example, see the [pacmap-rs-example repository](https://github.
 - `PairConfiguration::NeighborsProvided { pair_neighbors }` - Use provided nearest neighbors, generate remaining pairs
 - `PairConfiguration::AllProvided { pair_neighbors, pair_mn, pair_fp }` - Use all provided pairs
 
-## BLAS/LAPACK Requirements
+## Feature Flags
 
-This crate requires a BLAS/LAPACK backend for PCA. Because BLAS/LAPACK implementations are complex system dependencies,
-you must explicitly choose one when building on non-macOS platforms:
+### BLAS/LAPACK Backends
 
-- `intel-mkl-static` or `intel-mkl-system` for Intel MKL
-- `netlib-static` or `netlib-system` for Netlib
-- `openblas-static` or `openblas-system` for OpenBLAS
+Only one BLAS/LAPACK backend feature should be enabled at a time.
+These are required for PCA operations except on macOS which uses Accelerate by default.
+
+- `intel-mkl-static` - Static linking with Intel MKL
+- `intel-mkl-system` - Dynamic linking with system Intel MKL
+- `openblas-static` - Static linking with OpenBLAS
+- `openblas-system` - Dynamic linking with system OpenBLAS
+- `netlib-static` - Static linking with Netlib
+- `netlib-system` - Dynamic linking with system Netlib
 
 For example:
 
 ```toml
 [dependencies]
-pacmap = { version = "0.1", features = ["openblas-static"] }
+pacmap = { version = "0.2", features = ["openblas-static"] }
 ```
 
-**Note:** On macOS, the Accelerate Framework is used by default, so these features are not needed.
-
 See [ndarray-linalg's documentation](https://github.com/rust-ndarray/ndarray-linalg#backend-features) for detailed
-information about BLAS/LAPACK backend configuration and performance considerations.
+information about BLAS/LAPACK configuration and performance considerations.
+
+### Performance Features
+
+- `simsimd` - Enable SIMD optimizations in USearch for faster approximate nearest neighbor search.
+  Requires GCC 13+ for compilation and a recent glibc at runtime.
 
 ## Limitations
 

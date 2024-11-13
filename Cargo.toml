@@ -13,6 +13,7 @@ readme = "README.md"
 
 [features]
 default = []
+simsimd = ["usearch/simsimd"]
 intel-mkl-static = ["petal-decomposition/intel-mkl-static", "ndarray/blas"]
 intel-mkl-system = ["petal-decomposition/intel-mkl-system", "ndarray/blas"]
 openblas-static = ["petal-decomposition/openblas-static", "ndarray/blas"]
@@ -30,7 +31,7 @@ rand_pcg = "0.3"
 rayon = "1.10"
 thiserror = "2.0"
 tracing = "0.1"
-usearch = "2.15.3"
+usearch = { version = "2.16", default-features = false, features = ["fp16lib"] }
 wide = "0.7"
 
 [dev-dependencies]

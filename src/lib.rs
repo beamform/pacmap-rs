@@ -85,6 +85,30 @@
 //! - `override_neighbors`: Optional fixed neighbor count override
 //! - `seed`: Optional random seed for reproducible sampling
 //!
+//! ## Feature Flags
+//!
+//! ### BLAS/LAPACK Backends
+//!
+//! Only one BLAS/LAPACK backend feature should be enabled at a time. These are
+//! required for PCA operations except on macOS which uses Accelerate by
+//! default.
+//!
+//! - `intel-mkl-static` - Static linking with Intel MKL
+//! - `intel-mkl-system` - Dynamic linking with system Intel MKL
+//! - `openblas-static` - Static linking with `OpenBLAS`
+//! - `openblas-system` - Dynamic linking with system `OpenBLAS`
+//! - `netlib-static` - Static linking with Netlib
+//! - `netlib-system` - Dynamic linking with system Netlib
+//!
+//! For more details on BLAS/LAPACK configuration, see the [ndarray-linalg
+//! documentation](https://github.com/rust-ndarray/ndarray-linalg#backend-features).
+//!
+//! ### Performance Features
+//!
+//! - `simsimd` - Enable SIMD optimizations in `USearch` for faster approximate
+//!   nearest neighbor search. Requires GCC 13+ for compilation and a recent
+//!   glibc at runtime.
+//!
 //! ## Implementation Notes
 //!
 //! - Supports both exact and approximate nearest neighbor search
