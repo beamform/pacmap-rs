@@ -1,9 +1,14 @@
 //! K-nearest neighbor computation for `PaCMAP` dimensionality reduction.
 //!
-//! This module efficiently computes k-nearest neighbors for high-dimensional
-//! data points using SIMD-accelerated Euclidean distance calculations and
-//! parallel processing. The neighbors and distances are used by `PaCMAP` to
-//! preserve local structure during the dimensionality reduction process.
+//! Efficiently computes k-nearest neighbors for high-dimensional data points
+//! using SIMD-accelerated Euclidean distance calculations and parallel
+//! processing. Provides both exact and approximate neighbor finding algorithms.
+//!
+//! The neighbors and distances are used by `PaCMAP` to preserve local structure
+//! during the dimensionality reduction process.
+//!
+//! The approximate algorithm uses a spatial index for fast lookups on large
+//! datasets, while the exact algorithm computes all pairwise distances.
 
 use crate::distance::simd_euclidean_distance;
 use ndarray::{Array2, ArrayView2, Axis, Zip};
@@ -14,12 +19,33 @@ use tracing::error;
 use usearch::ffi::Matches;
 use usearch::{IndexOptions, MetricKind};
 
+/// Finds k-nearest neighbors approximately using a spatial index structure.
+///
+/// Builds a spatial index optimized for L2 distance queries and searches it in
+/// parallel. Appropriate for large datasets where exact neighbor finding is too
+/// expensive.
+///
+/// # Arguments
+/// * `data` - Input data matrix where each row is a point
+/// * `k` - Number of nearest neighbors to find per point
+///
+/// # Returns
+/// A tuple containing:
+/// * `neighbor_array` - Matrix of shape `(n, k)` containing indices of nearest
+///   neighbors
+/// * `distance_array` - Matrix of shape `(n, k)` containing distances to
+///   nearest neighbors
+///
+/// # Errors
+/// * `KnnError::Construction` if the index cannot be created
+/// * `KnnError::Reservation` if memory cannot be allocated for the index
 pub fn find_k_nearest_neighbors_approx(
     data: ArrayView2<f32>,
     k: usize,
 ) -> Result<(Array2<u32>, Array2<f32>), KnnError> {
     let n = data.nrows();
 
+    // Configure index for parallel L2 distance search
     let options = IndexOptions {
         dimensions: data.ncols(),
         metric: MetricKind::L2sq,
@@ -33,6 +59,7 @@ pub fn find_k_nearest_neighbors_approx(
         .reserve(n)
         .map_err(|e| KnnError::Reservation(e.to_string()))?;
 
+    // Add data points to index in parallel
     Zip::indexed(data.axis_iter(Axis(0))).par_for_each(|i, vector| {
         let result = match vector.as_slice() {
             None => {
@@ -50,6 +77,7 @@ pub fn find_k_nearest_neighbors_approx(
     let mut neighbors = Array2::zeros((n, k));
     let mut distances = Array2::zeros((n, k));
 
+    // Search for neighbors of each point in parallel, excluding self matches
     Zip::indexed(data.axis_iter(Axis(0)))
         .and(neighbors.axis_iter_mut(Axis(0)))
         .and(distances.axis_iter_mut(Axis(0)))
@@ -71,6 +99,7 @@ pub fn find_k_nearest_neighbors_approx(
                 }
             };
 
+            // Store neighbor indices and distances
             for (((nbr, dist), key), distance) in nbrs
                 .iter_mut()
                 .zip(dists.iter_mut())
@@ -85,28 +114,26 @@ pub fn find_k_nearest_neighbors_approx(
     Ok((neighbors, distances))
 }
 
-/// Finds k-nearest neighbors for a set of high-dimensional data points.
+/// Finds k-nearest neighbors exactly by computing all pairwise distances.
 ///
-/// Computes pairwise distances between all points in parallel using SIMD
-/// acceleration, then identifies the k nearest neighbors for each point based
-/// on Euclidean distance. Handles edge cases like empty inputs, single points,
-/// and when k exceeds available neighbors.
+/// Uses parallel processing and SIMD to accelerate the computation of pairwise
+/// distances. Appropriate for small to medium datasets where exact neighbors
+/// are desired.
 ///
 /// # Arguments
-///
 /// * `data` - Input data matrix where each row is a point
 /// * `k` - Number of nearest neighbors to find per point
 ///
 /// # Returns
-///
 /// A tuple containing:
-/// - `neighbor_array`: Matrix of shape `(n, min(k, n-1))` containing indices of
-///   nearest neighbors
-/// - `distance_array`: Matrix of shape `(n, min(k, n-1))` containing distances
+/// * `neighbor_array` - Matrix of shape `(n, min(k, n-1))` containing indices
+///   of nearest neighbors
+/// * `distance_array` - Matrix of shape `(n, min(k, n-1))` containing distances
 ///   to nearest neighbors
 ///
 /// Returns empty arrays if input is empty. For a single input point, arrays
 /// will have 0 columns.
+#[must_use]
 pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>, Array2<f32>) {
     let n = data.nrows();
 
@@ -118,8 +145,7 @@ pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>
     // Limit k to available neighbors
     let k = min(k, n - 1);
 
-    // Compute pairwise distances in parallel using SIMD
-    // For each point i, compute distances to all points j > i
+    // Compute upper triangular pairwise distances in parallel using SIMD
     let distances: Vec<_> = (0..n)
         .into_par_iter()
         .flat_map(|i| {
@@ -136,11 +162,11 @@ pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>
         })
         .collect();
 
-    // Sort distances in parallel to find k nearest neighbors
+    // Sort distances to find k nearest neighbors
     let mut distances_sorted = distances;
     distances_sorted.par_sort_unstable_by(|a, b| f32::total_cmp(&a.2, &b.2));
 
-    // Initialize output arrays and neighbor count tracking
+    // Initialize output arrays
     let mut neighbor_array = Array2::<u32>::zeros((n, k));
     let mut distance_array = Array2::<f32>::from_elem((n, k), f32::MAX);
     let mut counts = vec![0; n];
@@ -167,11 +193,14 @@ pub fn find_k_nearest_neighbors(data: ArrayView2<f32>, k: usize) -> (Array2<u32>
     (neighbor_array, distance_array)
 }
 
+/// Errors that can occur during k-nearest neighbor computation.
 #[derive(Debug, Error)]
 pub enum KnnError {
+    /// Failed to construct the spatial index
     #[error("failed to construct index: {0}")]
     Construction(String),
 
+    /// Failed to allocate memory for the index
     #[error("failed to reserve space for vectors: {0}")]
     Reservation(String),
 }
@@ -297,7 +326,6 @@ mod tests {
     /// Verifies nearest neighbor computation results match expected values
     ///
     /// # Arguments
-    ///
     /// * `neighbor_indices` - Computed matrix of nearest neighbor indices
     /// * `distances` - Computed matrix of distances to nearest neighbors
     /// * `expected` - Vector of expected (point_idx, vec![(neighbor_idx,
