@@ -5,7 +5,8 @@
 [![CI](https://github.com/beamform/pacmap-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/beamform/pacmap-rs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-A Rust implementation of PaCMAP (Pairwise Controlled Manifold Approximation) for dimensionality reduction.
+A Rust implementation of PaCMAP (Pairwise Controlled Manifold Approximation) for dimensionality reduction based on the
+original [Python implementation](https://github.com/YingfanWang/PaCMAP).
 
 ## Overview
 
