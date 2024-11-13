@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/beamform/pacmap-rs/compare/v0.2.0...v0.2.1) (2024-11-13)
+
+
+### Bug Fixes
+
+* downgrade usearch to compile on older OSes ([#12](https://github.com/beamform/pacmap-rs/issues/12)) ([dde9884](https://github.com/beamform/pacmap-rs/commit/dde9884eab427a9adf668bdf50d08ba96dc3792c))
+
 ## [0.2.0](https://github.com/beamform/pacmap-rs/compare/v0.1.0...v0.2.0) (2024-11-13)
 
 
