@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/beamform/pacmap-rs/compare/v0.2.1...v0.2.2) (2024-11-13)
+
+
+### Bug Fixes
+
+* make simd a feature flag ([#15](https://github.com/beamform/pacmap-rs/issues/15)) ([7783939](https://github.com/beamform/pacmap-rs/commit/7783939af19c625b3f9e6b0b1f619c78477df213))
+
 ## [0.2.1](https://github.com/beamform/pacmap-rs/compare/v0.2.0...v0.2.1) (2024-11-13)
 
 
