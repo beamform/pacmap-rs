@@ -30,6 +30,33 @@ For details on the algorithm, see the [original paper](https://jmlr.org/papers/v
 - Optional PCA initialization using various BLAS backends
 - Reproducible results with optional seeding
 
+## System Requirements
+
+### GCC Version
+
+This crate uses USearch for efficient nearest neighbor search, which requires GCC 11+ to build and a recent glibc to
+run. You may need to install a newer GCC version on your system.
+
+On Debian/Ubuntu:
+
+```bash
+# Add testing repo
+echo "deb http://deb.debian.org/debian testing main" | sudo tee /etc/apt/sources.list.d/testing.list
+sudo apt-get update
+
+# Install GCC 13
+sudo apt-get install gcc-13 g++-13
+
+# Set as default compiler
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 \
+  --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
+  --slave /usr/bin/gcov gcov /usr/bin/gcov-13
+
+# Set environment variables
+export CC=/usr/bin/gcc-13
+export CXX=/usr/bin/g++-13
+```
+
 ## Usage
 
 Basic usage with default parameters:
