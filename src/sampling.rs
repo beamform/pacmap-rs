@@ -3,8 +3,8 @@
 //! This module provides functions for sampling three types of point pairs used
 //! in `PaCMAP` dimensionality reduction:
 //!
-//! - Further pairs (FP): Random distant points sampled from outside each
-//!   point's nearest neighbors
+//! - Far pairs (FP): Random distant points sampled from outside each point's
+//!   nearest neighbors
 //! - Mid-near pairs (MN): Points sampled to preserve mid-range distances and
 //!   global structure
 //! - Nearest neighbors (NN): Close points based on distance metrics that
@@ -21,16 +21,18 @@ use rand::{thread_rng, Rng, SeedableRng};
 use rayon::slice::ParallelSliceMut;
 use std::cmp::min;
 
-/// Samples random indices while avoiding a set of rejected values.
+/// Samples random indices while avoiding excluded values.
 ///
 /// # Arguments
 /// * `n_samples` - Number of unique indices to sample
 /// * `maximum` - Maximum index value (exclusive)
 /// * `reject_ind` - Array of indices that cannot be sampled
+/// * `self_ind` - Index to exclude from sampling (typically the source point
+///   index)
 /// * `rng` - Random number generator to use
 ///
 /// # Returns
-/// Vector of `n_samples` unique sampled indices, each < `maximum` and not in
+/// A vector of `n_samples` unique indices, each < `maximum` and not in
 /// `reject_ind`
 fn sample_fp<R>(
     n_samples: usize,
@@ -278,16 +280,14 @@ pub fn sample_neighbors_pair(
     pair_neighbors
 }
 
-/// Helper function for sampling mid-near pairs.
-///
-/// From a set of 6 randomly sampled points, selects the point with the second
-/// smallest distance to create a mid-near pair.
+/// Creates a mid-near pair by finding the second closest point from sampled
+/// candidates.
 ///
 /// # Arguments
 /// * `x` - Input data matrix where each row is a point
 /// * `pair` - Output array to store the sampled pair indices
-/// * `i` - Index of the source point
-/// * `sampled` - Array of 6 randomly sampled indices to choose from
+/// * `i` - Index of source point
+/// * `sampled` - Array of randomly sampled candidate indices
 fn sample_mn_pair_impl(
     x: ArrayView2<f32>,
     mut pair: ArrayViewMut1<u32>,
