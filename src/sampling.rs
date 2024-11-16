@@ -15,11 +15,10 @@
 
 use crate::distance::array_euclidean_distance;
 use ndarray::parallel::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use ndarray::{s, Array2, ArrayView1, ArrayView2, ArrayViewMut1, Axis, Zip};
+use ndarray::{azip, s, Array2, ArrayView1, ArrayView2, ArrayViewMut1, Axis, Zip};
 use rand::rngs::SmallRng;
 use rand::{thread_rng, Rng, SeedableRng};
 use rayon::slice::ParallelSliceMut;
-use std::array::from_fn;
 use std::cmp::min;
 
 /// Samples random indices while avoiding a set of rejected values.
@@ -37,25 +36,29 @@ fn sample_fp<R>(
     n_samples: usize,
     maximum: u32,
     reject_ind: ArrayView1<u32>,
+    self_ind: u32,
     rng: &mut R,
 ) -> Vec<u32>
 where
     R: Rng,
 {
-    let available_indices = (maximum as usize).saturating_sub(reject_ind.len());
+    let available_indices = (maximum as usize)
+        .saturating_sub(reject_ind.len())
+        .saturating_sub(reject_ind.iter().all(|&i| i != self_ind) as usize);
+
     let n_samples = min(n_samples, available_indices);
     let mut result = Vec::with_capacity(n_samples);
 
     while result.len() < n_samples {
         let j = rng.gen_range(0..maximum);
-        if !result.contains(&j) && reject_ind.iter().all(|&k| k != j) {
+        if j != self_ind && !result.contains(&j) && reject_ind.iter().all(|&k| k != j) {
             result.push(j);
         }
     }
     result
 }
 
-/// Samples further pairs deterministically using a fixed random seed.
+/// Samples far pairs deterministically using a fixed random seed.
 ///
 /// Generates pairs of points by selecting random indices far from each point's
 /// nearest neighbors. The sampling is reproducible when using the same seed.
@@ -78,24 +81,28 @@ pub fn sample_fp_pair_deterministic(
 ) -> Array2<u32> {
     let n = x.nrows();
     let mut pair_fp = Array2::zeros((n * n_fp, 2));
+    let n = n as u32;
 
     // Sample n_fp far pairs for each point in parallel
     pair_fp
-        .axis_iter_mut(Axis(0))
+        .axis_chunks_iter_mut(Axis(0), n_fp)
         .into_par_iter()
         .enumerate()
-        .for_each(|(pair_index, mut pair)| {
-            let i = pair_index / n_fp;
-            let k = pair_index % n_fp;
-
-            let mut rng = SmallRng::seed_from_u64(random_state + pair_index as u64);
+        .for_each(|(i, mut pairs)| {
             let reject_ind =
                 pair_neighbors.slice(s![i * n_neighbors..(i + 1) * n_neighbors, 1_usize]);
-            let fp_index = sample_fp(n_fp, n as u32, reject_ind, &mut rng);
-            let k = min(k, fp_index.len() - 1);
 
-            pair[0] = i as u32;
-            pair[1] = fp_index[k];
+            let mut rng = SmallRng::seed_from_u64(random_state + i as u64);
+            let fp_index = sample_fp(n_fp, n, reject_ind, i as u32, &mut rng);
+
+            if fp_index.is_empty() {
+                return;
+            }
+
+            azip!((mut pair in pairs.rows_mut(), &index in &fp_index) {
+                pair[0] = i as u32;
+                pair[1] = index;
+            });
         });
 
     pair_fp
@@ -121,23 +128,26 @@ pub fn sample_mn_pair_deterministic(
 ) -> Array2<u32> {
     let n = x.nrows();
     let mut pair_mn = Array2::<u32>::zeros((n * n_mn, 2));
+    let n = n as u32;
 
     // Sample n_mn mid-near pairs for each point in parallel
     pair_mn
-        .axis_iter_mut(Axis(0))
+        .axis_chunks_iter_mut(Axis(0), n_mn)
         .into_par_iter()
         .enumerate()
-        .for_each(|(pair_index, pair)| {
-            let i = pair_index / n_mn;
-            let mut rng = SmallRng::seed_from_u64(random_state + pair_index as u64);
-            let sampled: [usize; 6] = from_fn(|_| rng.gen_range(0..n));
-            sample_mn_pair_impl(x, pair, i, sampled);
+        .for_each(|(i, mut pairs)| {
+            let mut rng = SmallRng::seed_from_u64(random_state + i as u64);
+            for j in 0..n_mn {
+                let reject_ind = pairs.slice(s![0..j, 1_usize]);
+                let sampled = sample_fp(6, n, reject_ind, i as u32, &mut rng);
+                sample_mn_pair_impl(x, pairs.row_mut(j), i, &sampled);
+            }
         });
 
     pair_mn
 }
 
-/// Samples further pairs using the global thread RNG.
+/// Samples far pairs using the global thread RNG.
 ///
 /// Non-deterministic version of `sample_fp_pair_deterministic` that uses the
 /// global thread-local random number generator instead of a seeded RNG.
@@ -158,24 +168,28 @@ pub fn sample_fp_pair(
 ) -> Array2<u32> {
     let n = x.nrows();
     let mut pair_fp = Array2::zeros((n * n_fp, 2));
+    let n = n as u32;
 
     // Sample n_fp far pairs for each point in parallel
     pair_fp
-        .axis_iter_mut(Axis(0))
+        .axis_chunks_iter_mut(Axis(0), n_fp)
         .into_par_iter()
         .enumerate()
-        .for_each(|(pair_index, mut pair)| {
-            let i = pair_index / n_fp;
-            let k = pair_index % n_fp;
-
+        .for_each(|(i, mut pairs)| {
             let reject_ind =
                 pair_neighbors.slice(s![i * n_neighbors..(i + 1) * n_neighbors, 1_usize]);
 
-            let fp_index = sample_fp(n_fp, n as u32, reject_ind, &mut thread_rng());
-            let k = min(k, fp_index.len() - 1);
+            let mut rng = thread_rng();
+            let fp_index = sample_fp(n_fp, n, reject_ind, i as u32, &mut rng);
 
-            pair[0] = i as u32;
-            pair[1] = fp_index[k];
+            if fp_index.is_empty() {
+                return;
+            }
+
+            azip!((mut pair in pairs.rows_mut(), &index in &fp_index) {
+                pair[0] = i as u32;
+                pair[1] = index;
+            });
         });
 
     pair_fp
@@ -195,16 +209,19 @@ pub fn sample_fp_pair(
 pub fn sample_mn_pair(x: ArrayView2<f32>, n_mn: usize) -> Array2<u32> {
     let n = x.nrows();
     let mut pair_mn = Array2::<u32>::zeros((n * n_mn, 2));
+    let n = n as u32;
 
-    // Sample n_mn mid-near pairs for each point in parallel
     pair_mn
-        .axis_iter_mut(Axis(0))
+        .axis_chunks_iter_mut(Axis(0), n_mn)
         .into_par_iter()
         .enumerate()
-        .for_each(|(pair_index, pair)| {
-            let i = pair_index / n_mn;
-            let sampled: [usize; 6] = from_fn(|_| thread_rng().gen_range(0..n));
-            sample_mn_pair_impl(x, pair, i, sampled);
+        .for_each(|(i, mut pairs)| {
+            let mut rng = thread_rng();
+            for j in 0..n_mn {
+                let reject_ind = pairs.slice(s![0..j, 1_usize]);
+                let sampled = sample_fp(6, n, reject_ind, i as u32, &mut rng);
+                sample_mn_pair_impl(x, pairs.row_mut(j), i, &sampled);
+            }
         });
 
     pair_mn
@@ -275,11 +292,11 @@ fn sample_mn_pair_impl(
     x: ArrayView2<f32>,
     mut pair: ArrayViewMut1<u32>,
     i: usize,
-    sampled: [usize; 6],
+    sampled: &[u32],
 ) {
     let mut distance_indices = [(0.0, 0); 6];
     for (&s, entry) in sampled.iter().zip(distance_indices.iter_mut()) {
-        let distance = array_euclidean_distance(x.row(i), x.row(s));
+        let distance = array_euclidean_distance(x.row(i), x.row(s as usize));
         *entry = (distance, s);
     }
 
@@ -287,7 +304,7 @@ fn sample_mn_pair_impl(
     let picked = distance_indices[1].1;
 
     pair[0] = i as u32;
-    pair[1] = picked as u32;
+    pair[1] = picked;
 }
 
 #[cfg(test)]
@@ -305,7 +322,7 @@ mod tests {
         let maximum = 10;
         let reject_ind = array![2, 4, 6];
 
-        let result = sample_fp(n_samples, maximum, reject_ind.view(), &mut rng);
+        let result = sample_fp(n_samples, maximum, reject_ind.view(), 0, &mut rng);
 
         assert_eq!(result.len(), n_samples);
         for &x in result.iter() {
