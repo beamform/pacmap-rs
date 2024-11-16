@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/beamform/pacmap-rs/compare/v0.2.2...v0.2.3) (2024-11-16)
+
+
+### Bug Fixes
+
+* rejection sampling in sample_FP and sample_MN ([#17](https://github.com/beamform/pacmap-rs/issues/17)) ([b94a785](https://github.com/beamform/pacmap-rs/commit/b94a7851d75dd6a3b513abd7ad3779e6bdda0526))
+
 ## [0.2.2](https://github.com/beamform/pacmap-rs/compare/v0.2.1...v0.2.2) (2024-11-13)
 
 
