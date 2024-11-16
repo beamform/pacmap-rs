@@ -305,7 +305,7 @@ pub fn fit_transform(
     let PreprocessingResult {
         x,
         pca_solution,
-        transform,
+        maybe_transform,
         ..
     } = preprocess_x(
         x,
@@ -320,7 +320,10 @@ pub fn fit_transform(
         YInit::Preprocessed
     } else {
         match config.initialization {
-            Initialization::Pca => YInit::DimensionalReduction(transform),
+            Initialization::Pca => {
+                let transform = maybe_transform.ok_or(PaCMapError::MissingTransform)?;
+                YInit::DimensionalReduction(transform)
+            }
             Initialization::Value(value) => YInit::Value(value),
             Initialization::Random(maybe_seed) => YInit::Random(maybe_seed),
         }
@@ -372,8 +375,8 @@ struct PreprocessingResult {
     /// Whether PCA dimensionality reduction was applied
     pca_solution: bool,
 
-    /// Fitted dimensionality reduction transform
-    transform: Transform,
+    /// Optional fitted dimensionality reduction transform
+    maybe_transform: Option<Transform>,
 
     /// Minimum x value
     x_min: f32,
@@ -448,7 +451,7 @@ fn preprocess_x(
     let x_mean: Array1<f32>;
     let x_min: f32;
     let x_max: f32;
-    let transform: Transform;
+    let mut maybe_transform = None;
 
     if high_dim > 100 && apply_pca {
         let n_components = min(100, x.nrows());
@@ -460,7 +463,7 @@ fn preprocess_x(
             None => {
                 let mut pca = RandomizedPca::new(n_components);
                 x_out = pca.fit_transform(&x)?;
-                transform = Transform::RandomizedPca(pca);
+                maybe_transform = Some(Transform::RandomizedPca(pca));
             }
             Some(seed) => {
                 let mut pca =
@@ -468,7 +471,7 @@ fn preprocess_x(
                         .build();
 
                 x_out = pca.fit_transform(&x)?;
-                transform = Transform::SeededPca(pca);
+                maybe_transform = Some(Transform::SeededPca(pca));
             }
         };
 
@@ -507,11 +510,13 @@ fn preprocess_x(
         // Subtract x_mean from x
         x_out -= &x_mean;
 
-        // Proceed with PCA
-        let n_components = min(x_out.nrows(), low_dim);
-        let mut pca = Pca::new(n_components);
-        pca.fit(&x_out)?;
-        transform = Transform::Pca(pca);
+        if apply_pca {
+            // Proceed with PCA
+            let n_components = min(x_out.nrows(), low_dim);
+            let mut pca = Pca::new(n_components);
+            pca.fit(&x_out)?;
+            maybe_transform = Some(Transform::Pca(pca));
+        }
 
         debug!("x is normalized");
     };
@@ -522,7 +527,7 @@ fn preprocess_x(
         x_min,
         x_max,
         x_mean,
-        transform,
+        maybe_transform,
     })
 }
 
@@ -910,4 +915,8 @@ pub enum PaCMapError {
     /// K-nearest neighbors error
     #[error(transparent)]
     Neighbors(#[from] KnnError),
+
+    /// PCA transform was not initialized
+    #[error("Unable to perform PCA; transform not initialized")]
+    MissingTransform,
 }
