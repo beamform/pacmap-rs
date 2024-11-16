@@ -46,7 +46,7 @@ where
 {
     let available_indices = (maximum as usize)
         .saturating_sub(reject_ind.len())
-        .saturating_sub(reject_ind.iter().all(|&i| i != self_ind) as usize);
+        .saturating_sub(usize::from(reject_ind.iter().all(|&i| i != self_ind)));
 
     let n_samples = min(n_samples, available_indices);
     let mut result = Vec::with_capacity(n_samples);
