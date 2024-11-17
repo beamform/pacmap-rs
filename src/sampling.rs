@@ -15,7 +15,7 @@
 
 use crate::distance::array_euclidean_distance;
 use ndarray::parallel::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use ndarray::{azip, s, Array2, ArrayView1, ArrayView2, ArrayViewMut1, Axis, Zip};
+use ndarray::{s, Array2, ArrayView1, ArrayView2, ArrayViewMut1, ArrayViewMut2, Axis, Zip};
 use rand::rngs::SmallRng;
 use rand::{thread_rng, Rng, SeedableRng};
 use rayon::slice::ParallelSliceMut;
@@ -96,15 +96,7 @@ pub fn sample_fp_pair_deterministic(
 
             let mut rng = SmallRng::seed_from_u64(random_state + i as u64);
             let fp_index = sample_fp(n_fp, n, reject_ind, i as u32, &mut rng);
-
-            if fp_index.is_empty() {
-                return;
-            }
-
-            azip!((mut pair in pairs.rows_mut(), &index in &fp_index) {
-                pair[0] = i as u32;
-                pair[1] = index;
-            });
+            assign_pairs(i, &mut pairs, &fp_index);
         });
 
     pair_fp
@@ -183,18 +175,31 @@ pub fn sample_fp_pair(
 
             let mut rng = thread_rng();
             let fp_index = sample_fp(n_fp, n, reject_ind, i as u32, &mut rng);
-
-            if fp_index.is_empty() {
-                return;
-            }
-
-            azip!((mut pair in pairs.rows_mut(), &index in &fp_index) {
-                pair[0] = i as u32;
-                pair[1] = index;
-            });
+            assign_pairs(i, &mut pairs, &fp_index);
         });
 
     pair_fp
+}
+
+/// Assigns pairs of indices to a point.
+///
+/// Sets the first column to the source point index `i` and the second column
+/// to each target point index from `fp_index`. This creates pairs connecting
+/// point `i` to each point in `fp_index`.
+///
+/// # Arguments
+/// * `i` - Source point index to use in first column
+/// * `pairs` - 2D array view to store the pairs in, with shape (n, 2)  
+/// * `fp_index` - Slice of target point indices to pair with source point
+fn assign_pairs(i: usize, pairs: &mut ArrayViewMut2<u32>, fp_index: &[u32]) {
+    pairs
+        .rows_mut()
+        .into_iter()
+        .zip(fp_index)
+        .for_each(|(mut pair, &index)| {
+            pair[0] = i as u32;
+            pair[1] = index;
+        });
 }
 
 /// Samples mid-near pairs using the global thread RNG.
