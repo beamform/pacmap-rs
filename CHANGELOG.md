@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/beamform/pacmap-rs/compare/v0.2.3...v0.2.4) (2024-11-17)
+
+
+### Bug Fixes
+
+* eliminate panic when zip lengths don’t match ([#19](https://github.com/beamform/pacmap-rs/issues/19)) ([a205233](https://github.com/beamform/pacmap-rs/commit/a205233e96d395f38f74c69f380d3b98dd154657))
+
 ## [0.2.3](https://github.com/beamform/pacmap-rs/compare/v0.2.2...v0.2.3) (2024-11-16)
 
 
