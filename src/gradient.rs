@@ -114,6 +114,10 @@ fn process_pairs(
         let i = pair_row[0] as usize;
         let j = pair_row[1] as usize;
 
+        if i == j {
+            continue;
+        }
+
         // Calculate squared distance between points
         let mut d_ij = 1.0f32;
         for d in 0..dim {
