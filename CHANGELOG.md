@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/beamform/pacmap-rs/compare/v0.2.4...v0.2.5) (2024-11-18)
+
+
+### Bug Fixes
+
+* skip zero pairs ([#21](https://github.com/beamform/pacmap-rs/issues/21)) ([266957c](https://github.com/beamform/pacmap-rs/commit/266957c8ece2ab2a03aa91e224fea6c26720b490))
+
 ## [0.2.4](https://github.com/beamform/pacmap-rs/compare/v0.2.3...v0.2.4) (2024-11-17)
 
 
