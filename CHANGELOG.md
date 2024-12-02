@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/beamform/pacmap-rs/compare/v0.2.5...v0.2.6) (2024-12-02)
+
+
+### Performance Improvements
+
+* increase chunk size and reduce allocation ([#24](https://github.com/beamform/pacmap-rs/issues/24)) ([4d1f2c7](https://github.com/beamform/pacmap-rs/commit/4d1f2c750366ff265b446d389d12edce644131f8))
+
 ## [0.2.5](https://github.com/beamform/pacmap-rs/compare/v0.2.4...v0.2.5) (2024-11-18)
 
 
