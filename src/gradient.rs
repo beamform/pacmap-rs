@@ -7,7 +7,7 @@
 
 use crate::weights::Weights;
 use ndarray::{Array2, ArrayView2, Axis};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 
 /// Calculates the gradient of the `PaCMAP` loss function for the current
 /// embedding.
@@ -54,12 +54,11 @@ pub fn pacmap_grad<'a>(
         .iter()
         .flat_map(|(pairs, w, denom_const, w_const, is_fp)| {
             pairs
-                .axis_chunks_iter(Axis(0), 1024)
+                .axis_chunks_iter(Axis(0), 128 * 1024)
                 .map(move |chunk| (chunk, *w, *denom_const, *w_const, *is_fp))
         })
-        .collect::<Vec<_>>()
-        .par_iter()
-        .map(|&(pairs, w, denom_const, w_const, is_fp)| {
+        .par_bridge()
+        .map(|(pairs, w, denom_const, w_const, is_fp)| {
             process_pairs(y, pairs, w, denom_const, w_const, is_fp, n, dim)
         })
         .reduce(
