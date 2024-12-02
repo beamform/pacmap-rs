@@ -1,6 +1,6 @@
 [package]
 name = "pacmap"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["Joshua Griffith <joshua@beamform.io>"]
 description = "Pairwise Controlled Manifold Approximation (PaCMAP) for dimensionality reduction"
