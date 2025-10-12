@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/beamform/pacmap-rs/compare/v0.2.6...v0.2.7) (2025-10-12)
+
+
+### Bug Fixes
+
+* **ci:** add read permissions to workflow ([#30](https://github.com/beamform/pacmap-rs/issues/30)) ([56fe26c](https://github.com/beamform/pacmap-rs/commit/56fe26c0e3d0251cbb63e0b980d46291faa12894))
+
 ## [0.2.6](https://github.com/beamform/pacmap-rs/compare/v0.2.5...v0.2.6) (2024-12-02)
 
 
