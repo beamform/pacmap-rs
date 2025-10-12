@@ -63,7 +63,7 @@ pub fn simd_euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
         sum_sq += diff * diff;
     }
 
-    let mut total_sum_sq: f32 = sum_sq.as_array_ref().iter().sum();
+    let mut total_sum_sq: f32 = sum_sq.as_array().iter().sum();
 
     // Handle remaining elements sequentially
     for (a, b) in a_remainder.iter().zip(b_remainder) {
