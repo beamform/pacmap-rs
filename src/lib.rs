@@ -473,7 +473,7 @@ fn preprocess_x(
                 x_out = pca.fit_transform(&x)?;
                 maybe_transform = Some(Transform::SeededPca(pca));
             }
-        };
+        }
 
         pca_solution = true;
 
@@ -519,7 +519,7 @@ fn preprocess_x(
         }
 
         debug!("x is normalized");
-    };
+    }
 
     Ok(PreprocessingResult {
         x: x_out,

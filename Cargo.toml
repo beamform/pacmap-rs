@@ -32,11 +32,11 @@ rayon = "1.10"
 thiserror = "2.0"
 tracing = "0.1"
 usearch = { version = "2.16", default-features = false, features = ["fp16lib"] }
-wide = "0.7"
+wide = "0.8"
 
 [dev-dependencies]
 approx = "0.5"
-criterion = "0.5"
+criterion = "0.7"
 mimalloc = "0.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
